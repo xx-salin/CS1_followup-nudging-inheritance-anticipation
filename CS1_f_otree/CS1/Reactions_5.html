@@ -1,0 +1,402 @@
+{{ block title }}
+    Reactions to the Scenario - Moral Appropriateness of Spending Changes
+{{ endblock }}
+
+
+
+
+{{ block content }}
+<div style="font-size:18px"><br>Reminder about the scenario:<br></div>
+<br>
+<div class="container bg-light border custom-border" style="padding-left:30px; padding-right:30px; padding-top:1rem; padding-bottom:1rem">
+    <strong>The Scenario</strong><br><br>
+
+    {% if group == 'FU_LAR_C' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_LAR_U' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'FU_NO_C' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_NO_U' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'FU_LAR_C_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_LAR_U_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'FU_NO_C_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_NO_U_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_LAR_C' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_LAR_U' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_NO_C' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_NO_U' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_LAR_C_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_LAR_U_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_NO_C_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_NO_U_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    <br>
+    {% include "CS1/partials/timeline.html" %}
+
+    {% if '_I' in group %}
+        Many people don't think about future income or cash they'll receive later when deciding how much to spend now.
+        This applies both to irregular future income (like the above) and regular future income (like salaries).
+        However, your ability to spend today depends not just on your current income, wealth, and debt, but also on the money you expect to receive in the future.
+        If you anticipate future income, you can choose to spend some of it now by dipping into your savings, saving less than usual, or borrowing (for example, using a credit card or a line of credit).
+        {% if '5' in info_subtype and '6' in info_subtype and '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income, your net wealth (e.g., savings invested in bank accounts or stocks) and borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '5' in info_subtype and '6' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income and your net wealth (e.g., savings invested in bank accounts or stocks). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '5' in info_subtype and '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income and borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '6' in info_subtype and '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your net wealth (e.g., savings invested in bank accounts or stocks) and borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '5' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income. That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '6' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your net wealth (e.g., savings invested in bank accounts or stocks). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% endif %}
+    {% endif %}
+
+</div>
+
+<br>
+
+    <strong>
+        Now consider ways in which you would react to this additional income, compared to the situation without the payment.
+    </strong>
+    <div>
+        Note that 'spend/spending' refers to expenses for goods (like cars or clothes) and services (like vacations or education), whereas 'save/saving' refers to payments related to investments (e.g., into savings accounts, funds, or other ways to build wealth) and borrowing (like mortgages, credit lines, or other debt).
+    </div>
+
+    <div style="margin-top: 25px;">
+        {{ formfield 'react20' }}
+    </div>
+
+    <div style="margin-top: 40px;">
+        Would <strong>you</strong> think it is morally appropriate to increase spending on yourself for each of the following periods as a reaction? <br>
+        <div style="display: inline-flex; align-items: center; margin-top: 35px">
+            <label style="margin-right: 10px;">
+                {{ form.react21_yr1.label }}
+            </label>
+            {{ form.react21_yr1 }}
+        </div> <br>
+        {% formfield_errors 'react21_yr1' %}
+
+        <div style="display: inline-flex; align-items: center; margin-top: 30px">
+            <label style="margin-right: 10px;">
+                {{ form.react21_yr2.label }}
+            </label>
+            {{ form.react21_yr2 }}
+        </div> <br>
+        {% formfield_errors 'react21_yr2' %}
+
+        <div style="display: inline-flex; align-items: center; margin-top: 30px">
+            <label style="margin-right: 20px;">
+                {{ form.react21_yr3.label }}
+            </label>
+            {{ form.react21_yr3 }}
+        </div>
+        {% formfield_errors 'react21_yr3' %}
+
+    </div>
+
+    <div style="margin-top: 50px;">
+        Would <strong>your parents</strong> think it is morally appropriate to increase spending on yourself for each of the following periods as a reaction? <br>
+        <div style="display: inline-flex; align-items: center; margin-top: 35px">
+            <label style="margin-right: 10px;">
+                {{ form.react22_yr1.label }}
+            </label>
+            {{ form.react22_yr1 }}
+        </div> <br>
+        {% formfield_errors 'react22_yr1' %}
+
+        <div style="display: inline-flex; align-items: center; margin-top: 30px">
+            <label style="margin-right: 10px;">
+                {{ form.react22_yr2.label }}
+            </label>
+            {{ form.react22_yr2 }}
+        </div> <br>
+        {% formfield_errors 'react22_yr2' %}
+
+        <div style="display: inline-flex; align-items: center; margin-top: 30px">
+            <label style="margin-right: 20px;">
+                {{ form.react22_yr3.label }}
+            </label>
+            {{ form.react22_yr3 }}
+        </div>
+        {% formfield_errors 'react22_yr3' %}
+
+    </div>
+
+
+    <div style="margin-top: 50px;">
+        Would <strong>others (other family, friends or neighbors)</strong> think it is morally appropriate to increase spending on yourself for each of the following periods as a reaction? <br>
+        <div style="display: inline-flex; align-items: center; margin-top: 35px">
+            <label style="margin-right: 10px;">
+                {{ form.react23_yr1.label }}
+            </label>
+            {{ form.react23_yr1 }}
+        </div> <br>
+        {% formfield_errors 'react23_yr1' %}
+
+        <div style="display: inline-flex; align-items: center; margin-top: 30px">
+            <label style="margin-right: 10px;">
+                {{ form.react23_yr2.label }}
+            </label>
+            {{ form.react23_yr2 }}
+        </div> <br>
+        {% formfield_errors 'react23_yr2' %}
+
+        <div style="display: inline-flex; align-items: center; margin-top: 30px">
+            <label style="margin-right: 20px;">
+                {{ form.react23_yr3.label }}
+            </label>
+            {{ form.react23_yr3 }}
+        </div>
+        {% formfield_errors 'react23_yr3' %}
+
+        <div style="margin-top:25px;">
+            Explain briefly why <strong>you/your parents/others</strong> would think increasing
+            your spending in the different periods is or is not appropriate.
+            <br><br>
+            {{ form.react23_why }}
+            {% formfield_errors 'react23_why' %}
+        </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+        Skip for testing
+    </button>
+{% endif %}
+{{ endblock }}
+
+
+{{ block scripts }}
+<script>
+    const MIN_TEXT_LENGTH = 1;
+
+    const form = document.getElementById('form') || document.querySelector('form');
+    if (form) {
+        form.setAttribute('novalidate', 'novalidate');
+    }
+
+    function sendKeylogEvent(fieldName, event, inputElem) {
+        liveSend({
+            field: fieldName,
+            t: performance.now(),
+            inputType: event.inputType || null,
+            data: event.data || null,
+            len: inputElem.value.length,
+        });
+    }
+
+    function isAnyInappropriate(groupPrefix) {
+        return [1, 2, 3].some((idx) => {
+            const field = document.getElementById(`id_${groupPrefix}_yr${idx}-1`);
+            return field ? field.checked : false;
+        });
+    }
+
+    function updateNextButtonState() {
+        const react23Why = document.getElementById('id_react23_why');
+
+        const react21Valid = !isAnyInappropriate('react21') || (react21Why && react21Why.value.trim().length >= MIN_TEXT_LENGTH);
+        const react22Valid = !isAnyInappropriate('react22') || (react22Why && react22Why.value.trim().length >= MIN_TEXT_LENGTH);
+        const react23Valid = !isAnyInappropriate('react23') || (react23Why && react23Why.value.trim().length >= MIN_TEXT_LENGTH);
+
+        [
+            ['id_react23_why', react23Valid],
+        ].forEach(([fieldId, isValid]) => {
+            const field = document.getElementById(fieldId);
+            if (!field) {
+                return;
+            }
+            field.classList.toggle('is-invalid', !isValid);
+        });
+    }
+
+    [
+        'id_react23_why',
+        'id_react21_yr1-1', 'id_react21_yr2-1', 'id_react21_yr3-1',
+        'id_react22_yr1-1', 'id_react22_yr2-1', 'id_react22_yr3-1',
+        'id_react23_yr1-1', 'id_react23_yr2-1', 'id_react23_yr3-1',
+        'id_react21_yr1-2', 'id_react21_yr2-2', 'id_react21_yr3-2',
+        'id_react22_yr1-2', 'id_react22_yr2-2', 'id_react22_yr3-2',
+        'id_react23_yr1-2', 'id_react23_yr2-2', 'id_react23_yr3-2',
+        'id_react21_yr1-3', 'id_react21_yr2-3', 'id_react21_yr3-3',
+        'id_react22_yr1-3', 'id_react22_yr2-3', 'id_react22_yr3-3',
+        'id_react23_yr1-3', 'id_react23_yr2-3', 'id_react23_yr3-3'
+    ].forEach((id) => {
+        const field = document.getElementById(id);
+        if (field) {
+            if (id.includes('_why')) {
+                field.addEventListener('input', (event) => {
+                    const fieldName = id.replace('id_', '');
+                    sendKeylogEvent(fieldName, event, field);
+                    updateNextButtonState();
+                });
+            } else {
+                field.addEventListener('change', updateNextButtonState);
+            }
+        }
+    });
+
+    updateNextButtonState();
+
+    function skipPage() {
+        document.getElementById('id_react20').value = 'testing';
+        document.getElementById('id_react21_yr1-2').checked = 'True';
+        document.getElementById('id_react21_yr2-2').checked = 'True';
+        document.getElementById('id_react21_yr3-2').checked = 'True';
+
+        document.getElementById('id_react22_yr1-2').checked = 'True';
+        document.getElementById('id_react22_yr2-2').checked = 'True';
+        document.getElementById('id_react22_yr3-2').checked = 'True';
+
+        document.getElementById('id_react23_yr1-2').checked = 'True';
+        document.getElementById('id_react23_yr2-2').checked = 'True';
+        document.getElementById('id_react23_yr3-2').checked = 'True';
+        document.getElementById('id_react23_why').value = 'testing';
+        updateNextButtonState();
+    }
+</script>
+{{ endblock }}

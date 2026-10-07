@@ -1,0 +1,55 @@
+{% extends "global/Base.html" %}
+{% load otree static %}
+
+{% block title %}
+    Concluding Survey 1 — Follow-Up 2
+{% endblock %}
+
+{% block content %}
+    <div style="font-size: 16px;">
+        <strong>You indicate that your expected parental inheritance does not affect your current spending. </strong>
+        <br>
+        Do you agree with the following statement?
+    </div>
+
+    <div style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9;">
+        "Before today, I have never even thought about whether the inheritance I expect should affect my current spending."
+    </div>
+
+    <div style="margin-top: 20px;">
+        <div style="margin-top: 10px;">
+            <label>
+                <input type="radio" name="inh_followup_thought" value="1"
+                    {% if inh_followup_thought == 1 %}checked{% endif %}>
+                Yes, the thought has never crossed my mind.
+            </label>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>
+                <input type="radio" name="inh_followup_thought" value="2"
+                    {% if inh_followup_thought == 2 %}checked{% endif %}>
+                No, I have considered this, but decided not to change my spending.
+            </label>
+        </div>
+        {% formfield_errors 'inh_followup_thought' %}
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+        Skip for testing
+    </button>
+{% endif %}
+{{ endblock }}
+
+{% block scripts %}
+<script>
+    function skipPage() {
+        document.querySelector('input[name="inh_followup_thought"][value="2"]').checked = true;
+        document.querySelector('form').submit();
+    }
+</script>
+{% endblock %}

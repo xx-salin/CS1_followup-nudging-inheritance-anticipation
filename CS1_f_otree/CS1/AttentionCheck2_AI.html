@@ -1,0 +1,44 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+    Some words
+{% endblock %}
+
+
+{% block content %}
+    <p>
+        Please type the following words into the space below:
+        <br> {{ insertWord }}<span style="visibility: hidden;">, Honolulu</span>
+    </p>
+
+    <p>
+        <input type="text" id="words" name="words" onpaste="return false;" oninput="handleInputChange(this);">
+    </p>
+    {% formfield_errors 'words' %}
+<br>
+
+    <p>
+    <!-- .otree-btn-next is the CSS/jQuery selector for this button -->
+    <button class="otree-btn-next btn btn-primary">Next</button>
+    </p>
+{% endblock %}
+{% block scripts %}
+<script>
+    function handleInputChange(input) {
+        // This function always receives the new input element
+        // You can add your logic here, for example:
+        // console.log('Input changed:', inputElem.value, inputElem);
+        console.log({
+            value: input.value,
+            inputType: event.inputType,
+            data: event.data
+        });
+
+        liveSend([input.value, event.inputType, event.data]);
+    }
+
+    document.getElementById('words').addEventListener('input', renderFromInput);
+</script>
+{% endblock %}
+

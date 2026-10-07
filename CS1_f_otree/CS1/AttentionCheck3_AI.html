@@ -1,0 +1,28 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+    Bot Check - 1 (of 2)
+{% endblock %}
+
+
+
+{% block content %}
+
+    <p>
+    <img src="{{ static "lines.png" }}" style="width: 20vw; height: auto;"/>
+    </p>
+
+    <p>
+        {% formfields %}
+        <br>
+    </p>
+
+
+    <p>
+    <!-- .otree-btn-next is the CSS/jQuery selector for this button -->
+    <button class="otree-btn-next btn btn-primary">Next</button>
+    </p>
+
+{% endblock %}
+

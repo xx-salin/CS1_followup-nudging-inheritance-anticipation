@@ -1,0 +1,226 @@
+{{ block title }}
+    Reactions to the Scenario - 5 (of 7)
+{{ endblock }}
+
+{{ block styles }}
+<style>
+    /* Container for each input + currency symbol */
+    .currency-field {
+        position: relative;
+        display: inline-block;
+        margin-right: 5px; /* Small gap if needed */
+    }
+
+    /* Position the currency symbol absolutely */
+    .currency-symbol {
+        position: absolute;
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none; /* So the symbol doesn't block clicking */
+        color: #333; /* Customize color */
+    }
+
+    /* Add left padding so text doesn't overlap the symbol */
+    .currency-input {
+        padding-left: 20px;
+    }
+</style>
+{{ endblock }}
+
+{{ block content }}
+    <strong>
+        Now consider ways in which you would react to this additional income, compared to the situation without the payment:
+    </strong>
+
+    <div style="margin-top: 30px;">
+        Please estimate how much of your change in spending would fall into each of these categories:
+    </div>
+    <table style="margin-top: 15px;">
+        <thead>
+            <tr>
+                <th>Category:</th>
+                <th>Years 1 and 2</th>
+                <th>Years 3 and 4</th>
+                <th>Rest of your life</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Food and non-alcoholic beverages</td>
+                <td>{{ form.react10_yr1 }}</td>
+                <td>{{ form.react10_yr2 }}</td>
+                <td>{{ form.react10_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Cars and other transport expenses</td>
+                <td>{{ form.react11_yr1 }}</td>
+                <td>{{ form.react11_yr2 }}</td>
+                <td>{{ form.react11_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Recreation and Culture</td>
+                <td>{{ form.react12_yr1 }}</td>
+                <td>{{ form.react12_yr2 }}</td>
+                <td>{{ form.react12_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Furnishing, Household Equipment, and Household Maintenance</td>
+                <td>{{ form.react13_yr1 }}</td>
+                <td>{{ form.react13_yr2 }}</td>
+                <td>{{ form.react13_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Restaurants and Hotels</td>
+                <td>{{ form.react14_yr1 }}</td>
+                <td>{{ form.react14_yr2 }}</td>
+                <td>{{ form.react14_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Clothing and Footwear</td>
+                <td>{{ form.react15_yr1 }}</td>
+                <td>{{ form.react15_yr2 }}</td>
+                <td>{{ form.react15_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Health</td>
+                <td>{{ form.react16_yr1 }}</td>
+                <td>{{ form.react16_yr2 }}</td>
+                <td>{{ form.react16_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Communications</td>
+                <td>{{ form.react17_yr1 }}</td>
+                <td>{{ form.react17_yr2 }}</td>
+                <td>{{ form.react17_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Alcoholic Beverages, Tobacco and Narcotics</td>
+                <td>{{ form.react18_yr1 }}</td>
+                <td>{{ form.react18_yr2 }}</td>
+                <td>{{ form.react18_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Education</td>
+                <td>{{ form.react19_yr1 }}</td>
+                <td>{{ form.react19_yr2 }}</td>
+                <td>{{ form.react19_yr3 }}</td>
+            </tr>
+            <tr>
+                <td>Other</td>
+                <td>
+                    <div id="remaining_column1_container" style="display: inline-flex; align-items: center; border: 1px solid #ccc; padding: 5px; border-radius: 5px; background-color: #f9f9f9; width: 110px;">
+                        <span id="remaining_column1" style="margin-right: 5px;">{{ column1 }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div id="remaining_column2_container" style="display: inline-flex; align-items: center; border: 1px solid #ccc; padding: 5px; border-radius: 5px; background-color: #f9f9f9; width: 110px;">
+                        <span id="remaining_column2" style="margin-right: 5px;">{{ column2 }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div id="remaining_column3_container" style="display: inline-flex; align-items: center; border: 1px solid #ccc; padding: 5px; border-radius: 5px; background-color: #f9f9f9; width: 110px;">
+                        <span id="remaining_column3" style="margin-right: 5px;">{{ column3 }}</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+
+
+<div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+    Skip for testing</button>
+{% endif %}
+{{ endblock }}
+
+{{ block scripts }}
+<script>
+$(document).ready(function() {
+    let fields = [
+        'react10_yr1', 'react10_yr2', 'react10_yr3',
+        'react11_yr1', 'react11_yr2', 'react11_yr3',
+        'react12_yr1', 'react12_yr2', 'react12_yr3',
+        'react13_yr1', 'react13_yr2', 'react13_yr3',
+        'react14_yr1', 'react14_yr2', 'react14_yr3',
+        'react15_yr1', 'react15_yr2', 'react15_yr3',
+        'react16_yr1', 'react16_yr2', 'react16_yr3',
+        'react17_yr1', 'react17_yr2', 'react17_yr3',
+        'react18_yr1', 'react18_yr2', 'react18_yr3',
+        'react19_yr1', 'react19_yr2', 'react19_yr3'
+    ];
+
+    // Total available spending amounts from Reactions_3
+    let totalColumn1 = {{ column1 }};
+    let totalColumn2 = {{ column2 }};
+    let totalColumn3 = {{ column3 }};
+
+    let fields_by_column = {
+        1: ['react10_yr1', 'react11_yr1', 'react12_yr1', 'react13_yr1', 'react14_yr1', 'react15_yr1', 'react16_yr1', 'react17_yr1', 'react18_yr1', 'react19_yr1'],
+        2: ['react10_yr2', 'react11_yr2', 'react12_yr2', 'react13_yr2', 'react14_yr2', 'react15_yr2', 'react16_yr2', 'react17_yr2', 'react18_yr2', 'react19_yr2'],
+        3: ['react10_yr3', 'react11_yr3', 'react12_yr3', 'react13_yr3', 'react14_yr3', 'react15_yr3', 'react16_yr3', 'react17_yr3', 'react18_yr3', 'react19_yr3']
+    };
+
+    // Function to update "Other" dynamically
+    function updateOtherFields() {
+        for (let col = 1; col <= 3; col++) {
+            let sum = 0;
+            fields_by_column[col].forEach(field => {
+                let value = parseFloat($(`#id_${field}`).val()) || 0;
+                sum += value;
+            });
+            let totalAvailable = col === 1 ? totalColumn1 : col === 2 ? totalColumn2 : totalColumn3;
+            let otherValue = totalAvailable - sum;
+            // Update "Other"
+            $(`#remaining_column${col}`).text(otherValue);
+        }
+    }
+
+    // Attach input event listener to update "Other" dynamically
+    fields.forEach(field => {
+        $(`#id_${field}`).on('input', updateOtherFields);
+    });
+
+    // Initialize "Other" calculation on page load
+    updateOtherFields();
+
+    // Wrap each spending input in a container and insert the currency symbol
+    fields.forEach(field => {
+        let inputSelector = `#id_${field}`;
+        // 1. Wrap the <input> in a container
+        $(inputSelector).wrap('<div class="currency-field"></div>');
+        // 2. Add a class to input for left padding
+        $(inputSelector).addClass('currency-input');
+        // 3. Insert the symbol to the left (absolute-positioned)
+        $('<span class="currency-symbol">{{ C.DEFAULT_CURRENCY_SYMBOL }}</span>').insertBefore(inputSelector);
+    });
+});
+
+// Function to skip the page by setting all fields to 0
+function skipPage() {
+    fields.forEach(field => {
+        document.getElementById(`id_${field}`).value = '0';
+    });
+}
+</script>
+{{ endblock }}
+
+
+
+SCENARIO
+    <div class="container bg-light border custom-border" style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; background-color: #f9f9f9;">
+        <strong>The Scenario</strong> <br>
+        <div style="margin-top: 10px;">
+    Suppose that today you learn that a relative you did not know has been diagnosed with a terminal disease.
+    As the relative does not have any children of their own, you are named as the sole heir.
+    You inherit  <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after
+    taxes from your relative in 2 years. This is a one-time payment you had not expected until today.
+            </div>
+    {{ formfields }}
+        </div>

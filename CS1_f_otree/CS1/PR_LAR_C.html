@@ -1,0 +1,75 @@
+{{ block title }}
+    <strong>The Scenario</strong>
+{{ endblock }}
+
+{{ block content }}
+    <input type="hidden" name="scenario_warning" id="scenario_warning" value="{{ scenario_warning }}">
+    <div style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; background-color: #d0e8ff; font-size: 16px; padding-left:15px; padding-right:15px; padding-top:1rem; padding-bottom:1rem">
+    {% if variation == 1 %}
+    Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+    after taxes from your mother today. This is a one-time payment you had not expected until today.
+    {% endif %}
+
+    {% if variation == 2 %}
+    Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+    after taxes from your father today. This is a one-time payment you had not expected until today.
+    {% endif %}
+    <br>
+    
+    <br>
+    Assume there is no uncertainty in the timing or amount of the payment.
+    {% include "CS1/partials/timeline.html" %}
+    </div>
+
+    <!-- Custom alert that appears if Next is pressed within 10 seconds -->
+    <div id="quick-alert"
+         class="alert alert-danger"
+         role="alert"
+         style="display: none; margin-top: 15px; padding: 10px;
+                border: 1px solid #ccc; border-radius: 5px;">
+        <p>Please study this scenario carefully before moving on.</p>
+        <button id="quick-alert-ok" class="btn btn-secondary" type="button">Ok</button>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <!-- replace {{ next_button }} with a custom button -->
+        <button id="nextBtn" class="btn btn-primary" type="button">Next</button>
+    </div>
+{{ endblock }}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const pageLoadTime   = Date.now();
+    let warningConfirmed = false;
+
+    const form           = document.querySelector("form");
+    const quickAlert     = document.getElementById("quick-alert");
+    const quickAlertOk   = document.getElementById("quick-alert-ok");
+    const nextBtn        = document.getElementById("nextBtn");
+    const hiddenInput    = document.getElementById("scenario_warning");
+
+    // When the user clicks "Ok", hide the alert and allow proceeding
+    quickAlertOk.addEventListener("click", function() {
+        quickAlert.style.display = "none";
+        warningConfirmed = true;
+    });
+
+    // Intercept Next-click
+    nextBtn.addEventListener("click", function() {
+        const timeSpent = (Date.now() - pageLoadTime) / 1000;
+
+        // if it’s been under 10s and not yet confirmed, show alert
+        if (!warningConfirmed && timeSpent < 10) {
+            hiddenInput.value = "1";
+            quickAlert.style.display = "block";
+            quickAlert.scrollIntoView({ behavior: "smooth", block: "center" });
+            return;
+        }
+
+        // otherwise submit the form
+        form.submit();
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% block title %}
+    Test Alert Page
+{% endblock %}
+
+{% block content %}
+    <!-- Inline alert, hidden by default -->
+    <div id="validation-alert"
+         class="alert alert-danger"
+         role="alert"
+         style="display: none; margin-top: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+        <p>Please respond to all items.</p>
+        <button id="validation-alert-ok" class="btn btn-secondary btn-sm" type="button">
+            Ok
+        </button>
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // 1) Grab the first <form> on the page
+    const form = document.querySelector("form");
+    if (!form) {
+        console.error("No <form> element found on page.");
+        return;
+    }
+
+    // 2) Grab the alert box & its Ok button
+    const alertDiv = document.getElementById("validation-alert");
+    const alertOk  = document.getElementById("validation-alert-ok");
+
+    // 3) Hide the alert when Ok is clicked
+    alertOk.addEventListener("click", () => {
+        alertDiv.style.display = "none";
+    });
+
+    // 4) Intercept any submit (i.e. Next button)
+    form.addEventListener("submit", function(event) {
+        event.preventDefault();             // stop oTree navigation
+        alertDiv.style.display = "block";   // show inline alert
+        alertDiv.scrollIntoView({           // bring it into view
+            behavior: "smooth",
+            block: "center"
+        });
+    });
+});
+</script>
+
+{% endblock %}

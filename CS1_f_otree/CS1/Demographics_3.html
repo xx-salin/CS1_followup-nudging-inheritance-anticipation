@@ -1,0 +1,33 @@
+{% block title %}
+    Concluding survey — Part 3 (of 3)
+{% endblock %}
+
+{{ block content }}
+    <div style="font-size: 16px;"><strong>Please answer the following questions.</strong></div>
+    <div style="margin-top: 30px">
+        {{ formfields }}
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+    Skip for testing</button>
+{% endif %}
+{{ endblock }}
+
+{{ block scripts }}
+    <script>
+        function skipPage() {
+            document.getElementById('id_interest_rate_inflation-3').checked = 'True';
+            document.getElementById('id_bonds_riskier-3').checked = 'True';
+            document.getElementById('id_highest_return_asset-3').checked = 'True';
+            document.getElementById('id_risk_spreading_money-3').checked = 'True';
+            document.getElementById('id_savings_interest-3').checked = 'True';
+            document.getElementById('id_stock_mutual_fund-3').checked = 'True';
+            document.getElementById('id_mortgage_payments-3').checked = 'True';
+        }
+    </script>
+{{ endblock }}

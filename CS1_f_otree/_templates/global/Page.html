@@ -1,0 +1,50 @@
+{% extends "otree/Page.html" %}
+{% load otree static %}
+
+{% block global_styles  %}
+<style>
+    .otree-form-errors {
+        margin-top: 12px;
+        margin-bottom: 16px;
+    }
+
+    .form-control-errors {
+        color: #b00020;
+        margin-top: 6px;
+        font-size: 0.95rem;
+        line-height: 1.3;
+    }
+
+    ._formfield.has-errors input,
+    ._formfield.has-errors textarea,
+    ._formfield.has-errors select {
+        border-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block global_scripts  %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('form');
+    if (form) {
+        form.setAttribute('novalidate', 'novalidate');
+    }
+
+    const firstError = document.querySelector('.form-control-errors, .otree-form-errors');
+    if (!firstError) {
+        return;
+    }
+
+    const wrapper = firstError.closest('._formfield, .mb-3');
+    if (!wrapper) {
+        return;
+    }
+
+    const input = wrapper.querySelector('input, textarea, select');
+    if (input) {
+        input.focus();
+    }
+});
+</script>
+{% endblock %}

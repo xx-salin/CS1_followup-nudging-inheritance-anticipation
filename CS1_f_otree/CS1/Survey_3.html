@@ -1,0 +1,38 @@
+{% extends "global/Base.html" %}
+{% load otree static %}
+
+{% block title %}
+    Introductory survey - 3 (of 3)
+{% endblock %}
+
+{% block content %}
+    <div style="font-size: 16px;"><strong>Please answer the following questions.</strong></div>
+    <div style="margin-top: 30px">
+        {{ formfields }}
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+    Skip for testing</button>
+{% endif %}
+{{ endblock }}
+
+
+{{ block scripts }}
+    <script>
+        function skipPage() {
+            document.getElementById('id_Demographics_Household_Income-3').checked = true;
+            document.getElementById('id_Demographics_LiquidWealth-3').checked = true;
+            document.getElementById('id_Demographics_IlliquidWealth-3').checked = true;
+            document.getElementById('id_Demographics_DebtWealth-3').checked = true;
+            document.getElementById('id_Demographics_LiquidityConstraints_1-3').checked = true;
+            document.getElementById('id_Demographics_LiquidityConstraints_2-3').checked = true;
+            document.getElementById('id_Demographics_LiquidityConstraints_3-3').checked = true;
+        }
+    </script>
+{{ endblock }}

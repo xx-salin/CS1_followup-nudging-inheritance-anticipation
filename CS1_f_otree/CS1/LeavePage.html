@@ -1,0 +1,25 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+{% block styles %}
+<style>
+     .custom-border {
+        border-color: #d6d8db;
+    }
+ </style>
+{% endblock %}
+{% block title %}
+
+{% endblock %}
+
+
+{% block content %}
+<div class="container bg-light border custom-border" style="padding-left:30px; padding-right:30px">
+    <br><br>
+        <p>
+            You decided to withhold consent and to leave the survey.
+            Please return your submission on Prolific.
+            Thank you!
+        </p>
+    <br><br>
+</div>
+{% endblock %}

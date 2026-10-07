@@ -1,0 +1,35 @@
+{% extends "global/Base.html" %}
+{% load otree static %}
+
+{% block title %}
+    Concluding survey — Part 1 (of 3)
+{% endblock %}
+
+{% block content %}
+    <div style="font-size: 16px;"><strong>Please answer the following questions.</strong></div>
+    <div style="margin-top: 30px">
+        {{ formfields }}
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+    Skip for testing</button>
+{% endif %}
+{{ endblock }}
+
+{{ block scripts }}
+    <script>
+        function skipPage() {
+            document.getElementById('id_Demographics_Age').value = '20';
+            document.getElementById('id_Demographics_AgeExpectation').value = '20';
+            document.getElementById('id_Demographics_Sex-2').checked = 'True'
+            document.getElementById('id_Demographics_Children-2').checked = 'True'
+            document.getElementById('id_Demographics_Education-2').checked = 'True'
+        }
+    </script>
+{{ endblock }}

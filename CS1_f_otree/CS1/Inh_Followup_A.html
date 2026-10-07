@@ -1,0 +1,55 @@
+{% extends "global/Base.html" %}
+{% load otree static %}
+
+{% block title %}
+    Concluding Survey 1 — Follow-Up
+{% endblock %}
+
+{% block content %}
+    <div style="font-size: 16px;"> <strong> Consider the parental inheritance that you expect to receive. </strong>
+        <br>
+         Which of the following is true in your case?</div>
+
+    <div style="margin-top: 20px;">
+        {% for val in order %}
+            {% if val == '1' %}
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="radio" name="inh_followup_effect" value="1"
+                            {% if inh_followup_effect == 1 %}checked{% endif %}>
+                        I currently consume more than I would without an expected inheritance
+                    </label>
+                </div>
+            {% endif %}
+            {% if val == '2' %}
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="radio" name="inh_followup_effect" value="2"
+                            {% if inh_followup_effect == 2 %}checked{% endif %}>
+                        The future inheritance has no effect on my current spending
+                    </label>
+                </div>
+            {% endif %}
+        {% endfor %}
+        {% formfield_errors 'inh_followup_effect' %}
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+        Skip for testing
+    </button>
+{% endif %}
+{{ endblock }}
+
+{% block scripts %}
+<script>
+    function skipPage() {
+        document.querySelector('input[name="inh_followup_effect"][value="2"]').checked = true;
+        document.querySelector('form').submit();
+    }
+</script>
+{% endblock %}

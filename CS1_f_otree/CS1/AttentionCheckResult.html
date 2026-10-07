@@ -1,0 +1,37 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+
+{% endblock %}
+
+
+{% block content %}
+
+    {% if player.checks == 1 %}
+        <p>
+            Thanks! You are now ready to begin the survey.
+        </p>
+
+        <p>
+            <br>
+            <br>
+        </p>
+
+        <p>
+            <!-- .otree-btn-next is the CSS/jQuery selector for this button -->
+            <button class="otree-btn-next btn btn-primary">Next</button>
+        </p>
+    {% else %}
+        <p>
+            The study has terminated because you failed to pass the screening. <br>
+            Please make sure to return the study. <br>
+            Thank you!
+        </p>
+    {% endif %}
+
+
+
+
+{% endblock %}
+

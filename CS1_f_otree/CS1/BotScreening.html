@@ -1,0 +1,82 @@
+{% extends "global/Page.html" %}
+{% block title %}
+
+    Bot Screening
+{% endblock %}
+
+{% block content %}
+
+<p>
+    Please click the box below to confirm that you are not a robot.
+</p>
+
+<input type="hidden" name="recaptcha_response" id="id_recaptcha_response" value="">
+
+{% if recaptcha_site_key %}
+<div
+    class="g-recaptcha"
+    data-sitekey="{{ recaptcha_site_key }}"
+    data-callback="onCaptchaVerified"
+    data-expired-callback="onCaptchaExpired"
+    data-error-callback="onCaptchaError"
+></div>
+{% else %}
+<p style="color: #b00020; margin-top: 12px;">
+    CAPTCHA is temporarily unavailable. Please contact the researcher.
+</p>
+{% endif %}
+
+<div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const nextButton = document.querySelector('.otree-btn-next');
+        const tokenInput = document.getElementById('id_recaptcha_response');
+
+        function setNextEnabled(enabled) {
+            if (!nextButton) {
+                return;
+            }
+
+            nextButton.disabled = !enabled;
+            nextButton.classList.toggle('disabled', !enabled);
+            nextButton.style.pointerEvents = enabled ? '' : 'none';
+            nextButton.style.opacity = enabled ? '' : '0.6';
+        }
+
+        window.onCaptchaVerified = function (token) {
+            if (tokenInput) {
+                tokenInput.value = token || '';
+            }
+            setNextEnabled(Boolean(token));
+        };
+
+        window.onCaptchaExpired = function () {
+            if (tokenInput) {
+                tokenInput.value = '';
+            }
+            setNextEnabled(false);
+        };
+
+        window.onCaptchaError = function () {
+            if (tokenInput) {
+                tokenInput.value = '';
+            }
+            setNextEnabled(false);
+        };
+
+        setNextEnabled(false);
+    });
+</script>
+
+{% if recaptcha_site_key %}
+<script src='https://www.google.com/recaptcha/api.js?hl=en'></script>
+{% endif %}
+
+{% endblock %}

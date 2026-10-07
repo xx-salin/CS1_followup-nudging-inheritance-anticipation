@@ -1,0 +1,51 @@
+{% extends "global/Base.html" %}
+{% load otree static %}
+
+{% block title %}
+    Concluding survey — Part 2 (of 3)
+{% endblock %}
+
+{% block content %}
+    <br> <div style="font-size: 16px; margin-top: 15px"><strong>Please answer the following questions.</strong></div>
+    <div style="margin-top: 15px">
+        {{ formfield form.Demographics_RiskAversion }}
+        {{ formfield form.Demographics_Sacrifice }}
+        {{ formfield form.Demographics_FinInterest }}
+        {{ formfield form.Demographics_PurchaseRegret }}
+        {{ formfield form.Demographics_Debt }}
+        {{ formfield form.Demographics_DebtAverage }}
+    </div> <br> <br>
+
+    <div style="font-size: 16px;"><strong>Please also evaluate the following statements.</strong></div>
+    <div style="margin-top: 15px">
+        {{ formfield form.Demographics_Anxious }}
+        {{ formfield form.Demographics_Choices }}
+        {{ formfield form.Demographics_Knowledge }}
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" onclick="skipPage()">
+    Skip for testing</button>
+{% endif %}
+{{ endblock }}
+
+
+{{ block scripts }}
+    <script>
+        function skipPage() {
+            document.getElementById('id_Demographics_RiskAversion-3').checked = true;
+            document.getElementById('id_Demographics_Sacrifice-3').checked = true;
+            document.getElementById('id_Demographics_FinInterest-3').checked = true;
+            document.getElementById('id_Demographics_PurchaseRegret-3').checked = true;
+            document.getElementById('id_Demographics_Debt-3').checked = true;
+            document.getElementById('id_Demographics_DebtAverage-3').checked = true;
+            document.getElementById('id_Demographics_Anxious-3').checked = true;
+            document.getElementById('id_Demographics_Choices-3').checked = true;
+            document.getElementById('id_Demographics_Knowledge-3').checked = true;
+        }
+    </script>
+{{ endblock }}

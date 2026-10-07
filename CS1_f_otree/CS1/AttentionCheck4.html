@@ -1,0 +1,42 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+
+{% endblock %}
+
+
+{% block content %}
+
+    <p>
+        Please read the passage below and answer the question that follows.
+    </p>
+
+    <p>
+        Tatyana knew that Grandma always enjoyed serving an abundance of food to her guests.
+        Now Tatyana watched as Grandma gathered Tatyana's small mother into a wide, scrawny
+        embrace and then propelled <span style="color:red;font-weight: bold;">her</span> to the table, lifting her shawl from her shoulders,
+        seating her in the place of honor, and saying simply: "There's plenty."
+    </p>
+
+    <p>
+        Who does "<span style="color:red;font-weight: bold;">her</span>" in the above passage refer to?
+    </p>
+
+    <p>
+        {% formfields %}
+    </p>
+
+    <p>
+        <br>
+        <br>
+    </p>
+
+
+    <p>
+    <!-- .otree-btn-next is the CSS/jQuery selector for this button -->
+    <button class="otree-btn-next btn btn-primary">Next</button>
+    </p>
+
+{% endblock %}
+

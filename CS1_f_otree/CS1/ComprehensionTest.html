@@ -1,0 +1,371 @@
+{{ block title }}
+    Comprehension Test
+{{ endblock }}
+
+{{ block styles }}
+<style>
+    .intro-copy {
+        margin-bottom: 14px;
+    }
+
+    .question-section {
+        margin-top: 18px;
+        margin-bottom: 20px;
+    }
+
+    .question-block {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border: 1px solid #e2e6ea;
+        border-radius: 6px;
+        background: #ffffff;
+    }
+
+    .question-number {
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .question-title {
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .single-choice-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .single-choice-row {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 16px;
+        margin: 0;
+    }
+
+    .single-choice-row input[type="radio"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        flex-shrink: 0;
+    }
+
+    .single-choice-text {
+        line-height: 1.3;
+    }
+
+    .custom-border {
+        border-color: #d6d8db;
+    }
+
+    .scenario-box {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background-color: #d0e8ff;
+        font-size: 16px;
+        padding: 1rem 15px;
+        margin: 12px 0;
+    }
+
+    .info-box {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background-color: #d0e8ff;
+        font-size: 16px;
+        padding: 1rem 15px;
+        margin: 10px 0 16px;
+    }
+</style>
+{{ endblock }}
+
+{{ block content }}
+    <div class="intro-copy">
+        You just learned about a scenario that involves a one-time payment. Please show that you understand that scenario:
+    </div>
+
+    {% if show_retry_reminder %}
+        <!-- <div class="alert alert-warning" role="alert">
+            At least one response was wrong. Please study the reminder and try again.
+        </div> -->
+
+<div style="font-size:18px"><br>Reminder about the scenario:<br></div>
+<br>
+<div class="container bg-light border custom-border" style="padding-left:30px; padding-right:30px; padding-top:1rem; padding-bottom:1rem">
+    <strong>The Scenario</strong><br><br>
+
+    {% if group == 'FU_LAR_C' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_LAR_U' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'FU_NO_C' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_NO_U' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'FU_LAR_C_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_LAR_U_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your mother in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father has been diagnosed with a terminal disease.
+            You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> after taxes from your father in 2 years.
+            This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'FU_NO_C_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'FU_NO_U_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund in 2 years.
+        This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_LAR_C' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_LAR_U' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_NO_C' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_NO_U' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_LAR_C_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_LAR_U_I' %}
+        {% if variation == 1 %}
+            Suppose that today you learn that your mother passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your mother today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        {% if variation == 2 %}
+            Suppose that today you learn that your father passed away last night. You inherit <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span>
+            after taxes from your father today. This is a one-time payment you had not expected until today.
+        {% endif %}
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    {% if group == 'PR_NO_C_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume there is no uncertainty in the timing or amount of the payment.
+    {% endif %}
+
+    {% if group == 'PR_NO_U_I' %}
+        Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years.
+        You receive a <span style="white-space: nowrap;">{{ C.DEFAULT_CURRENCY_SYMBOL }}50 000</span> refund today. This is a one-time payment you had not expected until today.
+        <br><br>Assume that, while there is always some uncertainty in the exact timing and amount of such payments, there is very little uncertainty in this scenario.
+    {% endif %}
+
+    <br>
+    {% include "CS1/partials/timeline.html" %}
+
+    {% if '_I' in group %}
+        Many people don't think about future income or cash they'll receive later when deciding how much to spend now.
+        This applies both to irregular future income (like the above) and regular future income (like salaries).
+        However, your ability to spend today depends not just on your current income, wealth, and debt, but also on the money you expect to receive in the future.
+        If you anticipate future income, you can choose to spend some of it now by dipping into your savings, saving less than usual, or borrowing (for example, using a credit card or a line of credit).
+        {% if '5' in info_subtype and '6' in info_subtype and '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income, your net wealth (e.g., savings invested in bank accounts or stocks) and borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '5' in info_subtype and '6' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income and your net wealth (e.g., savings invested in bank accounts or stocks). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '5' in info_subtype and '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income and borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '6' in info_subtype and '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your net wealth (e.g., savings invested in bank accounts or stocks) and borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '5' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your disposable income. That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '6' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by using your net wealth (e.g., savings invested in bank accounts or stocks). That means you can increase today's spending in anticipation of future income if you like.
+        {% elif '7' in info_subtype %}
+            <br><br>You stated that you would be able to spend more today by borrowing money (e.g., using consumer credit). That means you can increase today's spending in anticipation of future income if you like.
+        {% endif %}
+    {% endif %}
+
+</div>
+    {% endif %}
+    
+
+    <div class="question-section">
+        <strong>Please select the correct response for each question.</strong>
+
+        <div class="question-block">
+            {{ formfield 'comp_q1_timing' }}
+        </div>
+
+        <div class="question-block">
+            {{ formfield 'comp_q2_amount' }}
+        </div>
+
+        <div class="question-block">
+            {{ formfield 'comp_q3_reason' }}
+        </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+
+    {% if testing %}
+        <button id="skipBtn" class="btn btn-secondary px-3" type="button">
+            Skip for testing
+        </button>
+    {% endif %}
+{{ endblock }}
+
+{{ block scripts }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // {% if show_retry_reminder %}
+    //     window.alert("At least one response was wrong. Please study the reminder and try again.");
+    // {% endif %}
+
+    const skipBtn = document.getElementById("skipBtn");
+    const form = document.querySelector("form");
+    let skipSubmitting = false;
+
+    if (!skipBtn || !form) {
+        return;
+    }
+
+    skipBtn.addEventListener("click", function () {
+        if (skipSubmitting) {
+            return;
+        }
+
+        const missingTargets = [];
+
+        function setRequiredRadio(fieldName, value, label) {
+            const selector = `input[name="${fieldName}"][value="${value}"]`;
+            const input = document.querySelector(selector);
+            if (!input) {
+                missingTargets.push(`${label} (${selector})`);
+                return;
+            }
+            input.checked = true;
+        }
+
+        function setRequiredSingleOption(fieldName, label) {
+            const selector = `input[name="${fieldName}"]`;
+            const input = document.querySelector(selector);
+            if (!input) {
+                missingTargets.push(`${label} (${selector})`);
+                return;
+            }
+            input.checked = true;
+        }
+
+        setRequiredRadio("comp_q1_timing", "{{ expected_q1 }}", "Q1 timing");
+        setRequiredRadio("comp_q2_amount", "3", "Q2 amount");
+        setRequiredRadio("comp_q3_reason", "{{ expected_q3 }}", "Q3 reason");
+
+        if (missingTargets.length > 0) {
+            console.error(
+                "ComprehensionTest skip aborted: missing required input(s):",
+                missingTargets.join("; ")
+            );
+            return;
+        }
+
+        skipSubmitting = true;
+        skipBtn.disabled = true;
+        form.submit();
+    });
+});
+</script>
+{{ endblock }}

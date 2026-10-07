@@ -1,0 +1,98 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+
+{% endblock %}
+
+
+
+{% block content %}
+
+
+
+    <p>
+        Sentence 1:
+    </p>
+
+
+    {% if player.iamx1 == 1 %}
+        <p>
+            <img src="https://www.dropbox.com/s/0h7hrx7e7o3kk7v/IamHuman.png?raw=1" width="500px" />
+        </p>
+    {% elif player.iamx2 == 1 %}
+        <p>
+            <img src="https://www.dropbox.com/s/6893axw3mr5fyzu/IamLion.png?raw=1" width="500px" />
+        </p>
+    {% elif player.iamx3 == 1 %}
+        <p>
+            <img src="https://www.dropbox.com/s/4if9zhcv525opdr/IamRabbit.png?raw=1" width="500px" />
+        </p>
+    {% else %}
+        <p>
+
+        </p>
+    {% endif %}
+
+    <p>
+        Sentence 2:
+    </p>
+
+
+    {% if player.iamx1 == 2 %}
+        <p>
+            <img src="https://www.dropbox.com/s/0h7hrx7e7o3kk7v/IamHuman.png?raw=1" width="500px" />
+        </p>
+    {% elif player.iamx2 == 2 %}
+        <p>
+            <img src="https://www.dropbox.com/s/6893axw3mr5fyzu/IamLion.png?raw=1" width="500px" />
+        </p>
+    {% elif player.iamx3 == 2 %}
+        <p>
+            <img src="https://www.dropbox.com/s/4if9zhcv525opdr/IamRabbit.png?raw=1" width="500px" />
+        </p>
+    {% else %}
+        <p>
+
+        </p>
+    {% endif %}
+
+
+    <p>
+        Sentence 3:
+    </p>
+
+
+    {% if player.iamx1 == 3 %}
+        <p>
+            <img src="https://www.dropbox.com/s/0h7hrx7e7o3kk7v/IamHuman.png?raw=1" width="500px" />
+        </p>
+    {% elif player.iamx2 == 3 %}
+        <p>
+            <img src="https://www.dropbox.com/s/6893axw3mr5fyzu/IamLion.png?raw=1" width="500px" />
+        </p>
+    {% elif player.iamx3 == 3 %}
+        <p>
+            <img src="https://www.dropbox.com/s/4if9zhcv525opdr/IamRabbit.png?raw=1" width="500px" />
+        </p>
+    {% else %}
+        <p>
+
+        </p>
+    {% endif %}
+
+    <p>
+        {% formfields %}
+        <br>
+        <br>
+    </p>
+
+
+
+    <p>
+    <!-- .otree-btn-next is the CSS/jQuery selector for this button -->
+    <button class="otree-btn-next btn btn-primary">Next</button>
+    </p>
+
+{% endblock %}
+

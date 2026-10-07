@@ -1,0 +1,36 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+
+{% endblock %}
+
+
+
+{% block content %}
+
+    <p>
+        <img src="https://www.dropbox.com/s/na5xrgl830o9k03/FruitsLetters.png?raw=1" width="500px" />
+    </p>
+
+    <p>
+        <br>
+        Please type the letter that is written on the picture of the {{ fruit }}:
+    </p>
+
+    <p>
+        {% formfields %}
+    </p>
+
+    <p>
+        <br>
+        <br>
+    </p>
+
+    <p>
+    <!-- .otree-btn-next is the CSS/jQuery selector for this button -->
+    <button class="otree-btn-next btn btn-primary">Next</button>
+    </p>
+
+{% endblock %}
+
