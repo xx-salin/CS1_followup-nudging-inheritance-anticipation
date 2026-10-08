@@ -28,5 +28,20 @@
     <button class="otree-btn-next btn btn-primary">Next</button>
     </p>
 
-{% endblock %}
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" type="button" onclick="skipPage()">
+        Skip for testing
+    </button>
+{% endif %}
 
+{% endblock %}
+{% block scripts %}
+{% if testing %}
+<script>
+    function skipPage() {
+        document.querySelector('input[name="can"]').value = 'red';
+        document.getElementById('form').submit();
+    }
+</script>
+{% endif %}
+{% endblock %}

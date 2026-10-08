@@ -15,11 +15,15 @@ SESSION_CONFIGS = [
         'num_demo_participants': 41,
         'app_sequence': ['CS1'],
         'testing': True,
-        # Lifecycle planning tool (defaults as in ToyLifecycleTool.xlsx)
+        # Lifecycle planning tool (defaults as in ToyLifecycleTool.xlsx).
+        # Everything the tool shows is calculated from these inputs. For the years after the plan, the
+        # yearly withdrawal from savings (spending - pension) is treated as a growing perpetuity:
+        # savings are never used up if they are at least  withdrawal / (interest_rate - growth_rate).
         'initial_wealth': 120000,
-        'salary': 30253,
-        'pension': 17264,
-        'interest_rate': 0.03,
+        'salary': 30253,  # yearly income until retirement_age
+        'pension': 17264,  # yearly income from retirement_age
+        'interest_rate': 0.03,  # yearly interest on savings
+        'growth_rate': 0.0,  # yearly growth of spending and pension after the last plan year (0 = constant)
         'inheritance': 50000,
         'current_age': 62,
         'retirement_age': 67,  # first age at which income = pension

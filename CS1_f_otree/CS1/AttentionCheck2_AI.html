@@ -22,6 +22,12 @@
     <!-- .otree-btn-next is the CSS/jQuery selector for this button -->
     <button class="otree-btn-next btn btn-primary">Next</button>
     </p>
+
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" type="button" onclick="skipPage()">
+        Skip for testing
+    </button>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script>
@@ -40,5 +46,13 @@
 
     document.getElementById('words').addEventListener('input', renderFromInput);
 </script>
+{% if testing %}
+<script>
+    function skipPage() {
+        document.getElementById('words').value = '{{ insertWord }}';
+        document.getElementById('form').submit();
+    }
+</script>
+{% endif %}
 {% endblock %}
 

@@ -31,32 +31,92 @@
         return cfg.mode === 'change' ? cfg.base_spend[year] + value : value;
     }
 
-    // Same projection as _plan_project() in __init__.py
+    // The functions below mirror those of the same name in __init__.py
+
+    // Value today of a yearly payment that starts in one year and grows by growthRate every year, forever
+    function growingPerpetuityValue(firstPayment, interestRate, growthRate) {
+        if (interestRate - growthRate < cfg.rate_tolerance) return Infinity;
+        return firstPayment / (interestRate - growthRate);
+    }
+
+    // Value today of the first `count` payments of such a growing payment
+    function growingAnnuityValue(firstPayment, interestRate, growthRate, count) {
+        if (Math.abs(interestRate - growthRate) < cfg.rate_tolerance) {
+            return count * firstPayment / (1 + interestRate);
+        }
+        const ratio = (1 + growthRate) / (1 + interestRate);
+        return firstPayment * (1 - Math.pow(ratio, count)) / (interestRate - growthRate);
+    }
+
+    // Number of years after the last plan year for which the savings cover the yearly withdrawal
+    // (spending minus pension, growing by growth_rate); null if they cover it forever
+    function yearsSavingsLast(savings, withdrawal) {
+        const interest = cfg.interest_rate, growth = cfg.growth_rate;
+
+        // Growing perpetuity: the savings are never used up if they are worth at least all future withdrawals
+        if (withdrawal <= 0 || savings >= growingPerpetuityValue(withdrawal, interest, growth) - cfg.tolerance) {
+            return null;
+        }
+
+        // Growing annuity: savings = value of the first n withdrawals, solved for n
+        let count;
+        if (Math.abs(interest - growth) < cfg.rate_tolerance) {
+            count = savings * (1 + interest) / withdrawal;
+        } else {
+            count = Math.log(1 - savings * (interest - growth) / withdrawal) / Math.log((1 + growth) / (1 + interest));
+        }
+        count = Math.max(0, Math.floor(count));
+
+        // rounding can move the result across a whole number of years
+        const savingsLeft = function (afterYears) {
+            return savings - growingAnnuityValue(withdrawal, interest, growth, afterYears);
+        };
+        while (count > 0 && savingsLeft(count) < -cfg.tolerance) count--;
+        while (savingsLeft(count + 1) >= -cfg.tolerance) count++;
+        return count;
+    }
+
+    // Plan years year by year; the years after the plan with the growing annuity formulas
     function project(spend) {
+        const interest = cfg.interest_rate, growth = cfg.growth_rate;
+        const lastAge = cfg.ages[years - 1];
         const rows = [];
         let total = cfg.initial_wealth;
-        let depletionAge = null;
-        let bequest = null;
-        for (let age = cfg.ages[0]; age <= cfg.horizon_age; age++) {
-            const year = age - cfg.ages[0];
+        let firstNegativeAge = null;
+        for (let year = 0; year < years; year++) {
+            const age = cfg.ages[year];
             const income = age >= cfg.retirement_age ? cfg.pension : cfg.salary;
             const inheritance = age === cfg.inheritance_age ? cfg.inheritance : 0;
-            const saving = income - spend[Math.min(year, years - 1)] + inheritance;
-            total = year === 0 ? total + saving : total * (1 + cfg.interest_rate) + saving;
-            if (year < years) rows.push({age: age, saving: saving, total: total});
-            if (total < 0 && depletionAge === null) depletionAge = age - 1;
-            if (age === cfg.bequest_age) bequest = total;
+            const saving = income - spend[year] + inheritance;
+            total = year === 0 ? total + saving : total * (1 + interest) + saving;
+            rows.push({age: age, saving: saving, total: total});
+            if (total < 0 && firstNegativeAge === null) firstNegativeAge = age;
         }
+
+        // first withdrawal after the plan: what spending exceeds the pension by
+        const withdrawal = (spend[years - 1] - cfg.pension) * (1 + growth);
+
+        let depletionAge;
+        if (firstNegativeAge !== null) {
+            depletionAge = firstNegativeAge - 1;
+        } else {
+            const lasting = yearsSavingsLast(total, withdrawal);
+            depletionAge = lasting === null ? null : lastAge + lasting;
+        }
+
+        const yearsAfterPlan = cfg.bequest_age - lastAge;
+        const bequest = yearsAfterPlan > 0
+            ? (total - growingAnnuityValue(withdrawal, interest, growth, yearsAfterPlan)) * Math.pow(1 + interest, yearsAfterPlan)
+            : rows[cfg.bequest_age - cfg.ages[0]].total;
         return {rows: rows, depletionAge: depletionAge, bequest: bequest};
     }
 
     // Same wording as _plan_notes() in __init__.py
     function notes(result) {
-        const lastAge = cfg.ages[years - 1];
         const usedUp = result.depletionAge === null
-            ? `If you keep your spending constant after age ${lastAge}, your overall savings will last beyond age ${cfg.horizon_age}.`
-            : `If you keep your spending constant after age ${lastAge}, your overall savings will be used up by age ${result.depletionAge}.`;
-        const left = result.bequest === null || result.bequest < 0
+            ? `${cfg.after_plan_text}, your overall savings will never be used up.`
+            : `${cfg.after_plan_text}, your overall savings will be used up by age ${result.depletionAge}.`;
+        const left = result.bequest < 0
             ? `If you pass on at age ${cfg.bequest_age}, you will not leave a bequest.`
             : `If you pass on at age ${cfg.bequest_age}, you will leave a bequest of ${money(result.bequest)}.`;
         return [usedUp, left];

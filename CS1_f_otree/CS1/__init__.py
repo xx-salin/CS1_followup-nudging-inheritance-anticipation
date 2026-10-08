@@ -1,6 +1,7 @@
 from otree.api import *
 import ast
 import json
+import math
 import random
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -24,12 +25,12 @@ class C(BaseConstants):
     PLAYERS_PER_GROUP = None
     NUM_ROUNDS = 1
     KEYLOG_EVENT_CAP = 2000
-    PLAN_YEARS = 8  # years for which spending is planned; spending stays constant afterwards
-    PLAN_HORIZON_AGE = 109  # savings are projected up to this age
+    PLAN_YEARS = 8  # years for which spending is planned
     LAYOUTS = ['natural_2', 'natural_1', 'reframed']
     ROUND_ORDERS = ['present_first', 'future_first']
     CURRENCIES = {'AUD': 'A$', 'GBP': '£', 'EUR': '€', 'USD': '$'}
     COMPLICATED_WORDS = ['Schadenfreude', 'Bourgeoisie', 'Worcestershire']
+    TESTING_SKIP_TOKEN = 'skipped-for-testing'  # sent by the "Skip for testing" button of BotScreening
     # Change DEFAULT_CURRENCY if looking to change the currency of the experiment.
     DEFAULT_CURRENCY = 'GBP' # ADJUST THIS ONE
     DEFAULT_CURRENCY_SYMBOL = CURRENCIES[DEFAULT_CURRENCY]
@@ -90,7 +91,7 @@ class Player(BasePlayer):
     # ---------------------------------------- LIFECYCLE PLANNING TOOL -------------------------------------------
     # ------------------------------------------------------------------------------------------------------------
     # y1..y8 are the plan years (ages 63 to 70 with the default parameters).
-    # depletion_age = last age with non-negative total savings (empty if they last beyond C.PLAN_HORIZON_AGE)
+    # depletion_age = last age with non-negative total savings (empty if the savings are never used up)
     # bequest = total savings left at the bequest age
 
     # Plan_Baseline: initial spending plan
@@ -356,6 +357,7 @@ PLAN_PARAM_DEFAULTS = dict(
     salary=30253,
     pension=17264,
     interest_rate=0.03,
+    growth_rate=0.0,  # yearly growth of spending and pension after the last plan year (0 = constant)
     inheritance=50000,
     current_age=62,
     retirement_age=67,  # first age at which income = pension
@@ -363,6 +365,8 @@ PLAN_PARAM_DEFAULTS = dict(
     bequest_age=90,
 )
 PLAN_YEAR_NUMBERS = range(1, C.PLAN_YEARS + 1)
+PLAN_TOLERANCE = 1e-6  # savings this close to zero count as zero (rounding in the formulas)
+PLAN_RATE_TOLERANCE = 1e-9  # interest and growth rates this close count as equal
 
 
 def _money(value):
@@ -371,12 +375,31 @@ def _money(value):
     return f'{sign}{C.DEFAULT_CURRENCY_SYMBOL}{abs(value):,}'
 
 
-def _plan_params(player: Player):
-    config = player.session.config
+def _plan_params_from_config(config):
     p = {key: config.get(key, default) for key, default in PLAN_PARAM_DEFAULTS.items()}
     p['first_age'] = p['current_age'] + 1
     p['last_age'] = p['current_age'] + C.PLAN_YEARS
     return p
+
+
+def _plan_params(player: Player):
+    return _plan_params_from_config(player.session.config)
+
+
+def _plan_check_params(p):
+    """Stops the creation of a session whose parameters the tool cannot handle."""
+    problems = []
+    if p['interest_rate'] <= -1 or p['growth_rate'] <= -1:
+        problems.append('interest_rate and growth_rate must be larger than -1')
+    if p['retirement_age'] > p['last_age'] + 1:
+        problems.append(f'retirement_age must be at most {p["last_age"] + 1}, '
+                        'because the years after the plan are calculated with the pension as income')
+    if not 1 <= p['inheritance_delay_years'] < C.PLAN_YEARS:
+        problems.append(f'inheritance_delay_years must be between 1 and {C.PLAN_YEARS - 1}')
+    if p['bequest_age'] < p['first_age']:
+        problems.append(f'bequest_age must be at least {p["first_age"]}')
+    if problems:
+        raise ValueError('Planning tool parameters in the session config: ' + '; '.join(problems) + '.')
 
 
 def _plan_ages(p):
@@ -404,42 +427,105 @@ def _plan_base_spending(player: Player):
     return [player.field_maybe_none(f'base_spend_y{i}') for i in PLAN_YEAR_NUMBERS]
 
 
-def _plan_project(p, spending, inheritance_age=None):
-    """Projects total savings for a spending plan with one entry per plan year, as in ToyLifecycleTool.xlsx.
+def _growing_perpetuity_value(first_payment, interest_rate, growth_rate):
+    """Value today of a yearly payment that starts in one year and grows by growth_rate every year, forever:
+    first_payment / (interest_rate - growth_rate). There is no finite value unless the interest exceeds the growth."""
+    if interest_rate - growth_rate < PLAN_RATE_TOLERANCE:
+        return math.inf
+    return first_payment / (interest_rate - growth_rate)
 
-    After the last plan year, spending stays at the level of the last plan year. Returns the rows of
-    the plan years, the last age at which total savings are still non-negative (None if they last
-    beyond C.PLAN_HORIZON_AGE) and the total savings at the bequest age.
+
+def _growing_annuity_value(first_payment, interest_rate, growth_rate, years):
+    """Value today of the first `years` payments of such a growing payment."""
+    if abs(interest_rate - growth_rate) < PLAN_RATE_TOLERANCE:
+        return years * first_payment / (1 + interest_rate)
+    ratio = (1 + growth_rate) / (1 + interest_rate)
+    return first_payment * (1 - ratio ** years) / (interest_rate - growth_rate)
+
+
+def _plan_years_savings_last(p, savings, withdrawal):
+    """Number of years after the last plan year for which the savings cover the yearly withdrawal
+    (spending minus pension, growing by growth_rate); None if they cover it forever."""
+    interest, growth = p['interest_rate'], p['growth_rate']
+
+    # Growing perpetuity: the savings are never used up if they are worth at least all future withdrawals
+    if withdrawal <= 0 or savings >= _growing_perpetuity_value(withdrawal, interest, growth) - PLAN_TOLERANCE:
+        return None
+
+    # Growing annuity: savings = value of the first n withdrawals, solved for n
+    if abs(interest - growth) < PLAN_RATE_TOLERANCE:
+        years = savings * (1 + interest) / withdrawal
+    else:
+        years = math.log(1 - savings * (interest - growth) / withdrawal) / math.log((1 + growth) / (1 + interest))
+    years = max(0, math.floor(years))
+
+    # rounding can move the result across a whole number of years
+    def savings_left(after_years):
+        return savings - _growing_annuity_value(withdrawal, interest, growth, after_years)
+
+    while years > 0 and savings_left(years) < -PLAN_TOLERANCE:
+        years -= 1
+    while savings_left(years + 1) >= -PLAN_TOLERANCE:
+        years += 1
+    return years
+
+
+def _plan_project(p, spending, inheritance_age=None):
+    """Projects total savings for a spending plan with one entry per plan year.
+
+    The plan years are calculated year by year, as in ToyLifecycleTool.xlsx. For the years after the
+    plan, spending and pension both grow by growth_rate a year (0 = they stay constant), so the yearly
+    withdrawal from savings is a growing annuity and no year-by-year table is needed. Returns the rows
+    of the plan years, the last age at which total savings are still non-negative (None if they are
+    never used up) and the total savings at the bequest age.
     """
+    interest, growth = p['interest_rate'], p['growth_rate']
     rows = []
     total = p['initial_wealth']
-    depletion_age = None
-    bequest = None
-    for age in range(p['first_age'], C.PLAN_HORIZON_AGE + 1):
-        year = age - p['first_age']
+    for year, age in enumerate(_plan_ages(p)):
         income = _plan_income(p, age)
         inheritance = p['inheritance'] if age == inheritance_age else 0
-        saving = income - spending[min(year, C.PLAN_YEARS - 1)] + inheritance
+        saving = income - spending[year] + inheritance
         # savings carried over from the previous year earn interest
-        total = total + saving if year == 0 else total * (1 + p['interest_rate']) + saving
-        if year < C.PLAN_YEARS:
-            rows.append(dict(age=age, income=income, inheritance=inheritance, saving=saving, total=total))
-        if total < 0 and depletion_age is None:
-            depletion_age = age - 1
-        if age == p['bequest_age']:
-            bequest = total
+        total = total + saving if year == 0 else total * (1 + interest) + saving
+        rows.append(dict(age=age, income=income, inheritance=inheritance, saving=saving, total=total))
+
+    # first withdrawal after the plan: what spending exceeds the pension by
+    withdrawal = (spending[-1] - p['pension']) * (1 + growth)
+
+    first_negative_age = next((row['age'] for row in rows if row['total'] < 0), None)
+    if first_negative_age is not None:
+        depletion_age = first_negative_age - 1
+    else:
+        years = _plan_years_savings_last(p, total, withdrawal)
+        depletion_age = None if years is None else p['last_age'] + years
+
+    years_after_plan = p['bequest_age'] - p['last_age']
+    if years_after_plan > 0:
+        # savings at the end of the plan minus the withdrawals since then, with interest
+        bequest = ((total - _growing_annuity_value(withdrawal, interest, growth, years_after_plan))
+                   * (1 + interest) ** years_after_plan)
+    else:
+        bequest = rows[p['bequest_age'] - p['first_age']]['total']
     return rows, depletion_age, bequest
 
 
+def _plan_after_plan_text(p):
+    growth = p['growth_rate']
+    if growth == 0:
+        return f'If you keep your spending constant after age {p["last_age"]}'
+    direction = 'grow' if growth > 0 else 'fall'
+    return (f'If your spending and your pension {direction} by {abs(growth) * 100:g}% per year '
+            f'after age {p["last_age"]}')
+
+
 def _plan_notes(p, depletion_age, bequest):
-    # Keep the wording in sync with notes() in CS1/partials/plan_tool.html
+    # Keep the wording in sync with notes() in CS1/partials/plan_tool_scripts.html
     if depletion_age is None:
-        used_up = (f'If you keep your spending constant after age {p["last_age"]}, '
-                   f'your overall savings will last beyond age {C.PLAN_HORIZON_AGE}.')
+        used_up = f'{_plan_after_plan_text(p)}, your overall savings will never be used up.'
     else:
-        used_up = (f'If you keep your spending constant after age {p["last_age"]}, '
-                   f'your overall savings will be used up by age {depletion_age}.')
-    if bequest is None or bequest < 0:
+        used_up = f'{_plan_after_plan_text(p)}, your overall savings will be used up by age {depletion_age}.'
+    if bequest < 0:
         left = f'If you pass on at age {p["bequest_age"]}, you will not leave a bequest.'
     else:
         left = f'If you pass on at age {p["bequest_age"]}, you will leave a bequest of {_money(bequest)}.'
@@ -450,7 +536,7 @@ def _plan_error(p, spending, inheritance_age=None, base_spending=None):
     """Error message if a spending plan is incomplete or not feasible, otherwise None.
 
     base_spending is passed when the participant entered changes in spending rather than spending.
-    Keep the rules and wording in sync with planError() in CS1/partials/plan_tool.html
+    Keep the rules and wording in sync with planError() in CS1/partials/plan_tool_scripts.html
     """
     if any(amount is None for amount in spending):
         return 'Please enter a number for every year.'
@@ -549,7 +635,7 @@ def _plan_vars(player: Player, timing=None):
 
 
 def _plan_js_vars(player: Player, mode, fields, timing=None):
-    """Data for CS1/partials/plan_tool.html.
+    """Data for CS1/partials/plan_tool_scripts.html.
 
     mode: 'baseline' (spending is entered), 'change' (change in spending is entered) or
     'level' (updated spending is entered).
@@ -566,10 +652,13 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
         pension=p['pension'],
         retirement_age=p['retirement_age'],
         interest_rate=p['interest_rate'],
+        growth_rate=p['growth_rate'],
+        after_plan_text=_plan_after_plan_text(p),
         inheritance=p['inheritance'],
         inheritance_age=_plan_inheritance_age(p, timing),
         bequest_age=p['bequest_age'],
-        horizon_age=C.PLAN_HORIZON_AGE,
+        tolerance=PLAN_TOLERANCE,
+        rate_tolerance=PLAN_RATE_TOLERANCE,
         currency=C.DEFAULT_CURRENCY_SYMBOL,
     )
 
@@ -632,8 +721,7 @@ def _plan_store_projection(player: Player, prefix, p, spending, inheritance_age=
     _, depletion_age, bequest = _plan_project(p, spending, inheritance_age)
     if depletion_age is not None:
         setattr(player, f'{prefix}_depletion_age', depletion_age)
-    if bequest is not None:
-        setattr(player, f'{prefix}_bequest', round(bequest, 2))
+    setattr(player, f'{prefix}_bequest', round(bequest, 2))
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -641,6 +729,8 @@ def _plan_store_projection(player: Player, prefix, p, spending, inheritance_age=
 # ------------------------------------------------------------------------------------------------------------
 def creating_session(subsession: Subsession):
     if subsession.round_number == 1:
+        _plan_check_params(_plan_params_from_config(subsession.session.config))
+
         # Between-subject cells: input layout x order of the two scenarios x framing of the own-inheritance follow-up.
         # The layout changes fastest, so that small sessions are balanced on it first.
         cells = [
@@ -713,6 +803,11 @@ class BotScreening(Page):
             player.recaptcha_verified = False
             return 'Please complete the CAPTCHA before continuing.'
 
+        # "Skip for testing" button: the CAPTCHA was not solved, so it stays unverified
+        if player.session.config.get('testing') and token == C.TESTING_SKIP_TOKEN:
+            player.recaptcha_verified = False
+            return
+
         require_server_verification = bool(
             player.session.config.get('recaptcha_enforce_server_verification', True)
         )
@@ -747,6 +842,9 @@ class AttentionCheck1_AI(Page):
     def is_displayed(player):
         return player.round_number == C.NUM_ROUNDS
 
+    def vars_for_template(player):
+        return {'testing': player.session.config["testing"]}
+
     def before_next_page(player, timeout_happened):
         answer1 = player.can
         if answer1.upper() == "RED":
@@ -767,6 +865,7 @@ class AttentionCheck2_AI(Page):
         insertWord = ', '.join(C.COMPLICATED_WORDS)
         return {
                 'insertWord': insertWord,
+                'testing': player.session.config["testing"],
         }
     @staticmethod
     def live_method(player, data):
@@ -794,6 +893,9 @@ class AttentionCheck3_AI(Page):
     def is_displayed(player):
         return player.round_number == 1
 
+    def vars_for_template(player):
+        return {'testing': player.session.config["testing"]}
+
     def before_next_page(player, timeout_happened):
         if player.lines == 1:
             player.attention3 = 1
@@ -808,6 +910,9 @@ class AttentionCheck4_AI(Page):
 
     def is_displayed(player):
         return player.round_number == 1
+
+    def vars_for_template(player):
+        return {'testing': player.session.config["testing"]}
 
     def before_next_page(player, timeout_happened):
         if player.cafewall == 2:

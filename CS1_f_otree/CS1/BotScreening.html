@@ -30,6 +30,12 @@
         {{ next_button }}
     </div>
 
+{% if testing %}
+    <button id="skipBtn" class="btn btn-secondary px-3" type="button" onclick="skipPage()">
+        Skip for testing
+    </button>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
@@ -77,6 +83,15 @@
 
 {% if recaptcha_site_key %}
 <script src='https://www.google.com/recaptcha/api.js?hl=en'></script>
+{% endif %}
+
+{% if testing %}
+<script>
+    function skipPage() {
+        document.getElementById('id_recaptcha_response').value = '{{ C.TESTING_SKIP_TOKEN }}';
+        document.getElementById('form').submit();
+    }
+</script>
 {% endif %}
 
 {% endblock %}
