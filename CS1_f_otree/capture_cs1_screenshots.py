@@ -13,11 +13,11 @@ HOW TO USE
 
 PERSONAS
 --------
-  A  — spender      : positive spend all years → Reactions_3/4/5/6,
-                       Followup_B, full Inh_Followup chain (A→D)
+  A  — spender      : positive spend all years → Reactions_5/6,
+                       full Inh_Followup chain (A→D)
   B  — zero-pre     : 0 in yr1/2, positive yr3+ (future only) →
-                       Reactions_2_Followup_A1 + A2, Inh_Followup chain
-  C  — all-zero     : all zeros, blank parents → skips Reactions_3/4/5/6,
+                       Reactions_2_Followup_A2, Inh_Followup chain
+  C  — all-zero     : all zeros, blank parents → skips
                        all Followups, Inh_Followup chain
 
 Needs 16 participant slots (one per treatment group).
@@ -99,8 +99,6 @@ TEXT_VALUES = {
     "react3":                "I would plan to spend more on leisure and travel given the windfall.",
     "react4":                "I would continue increased spending on home improvements in years 3 and 4.",
     "react5":                "I would maintain slightly elevated spending for the rest of my life.",
-    "react9":                "I plan to gradually increase my spending in line with the received payment.",
-    "react_followup1":       "I prefer to wait until I actually receive the money before changing my spending.",
     "react_followup2_other": "",
     "react20":               "The scenario made me feel more financially secure, which positively affected my spending decisions.",
     "react23_why":           "I believe it is appropriate to increase spending in all periods as the payment is confirmed.",
@@ -118,26 +116,6 @@ NUMBER_VALUES_BASE = {
     "survey1_save":  "50",
     "Demographics_Age":            "35",
     "Demographics_AgeExpectation": "80",
-    # Reactions_3 (each column sums to 100)
-    "react_durable_yr1":             "50",
-    "react_durable_yr2":             "50",
-    "react_durable_yr3":             "50",
-    "react_nondurable_services_yr1": "50",
-    "react_nondurable_services_yr2": "50",
-    "react_nondurable_services_yr3": "50",
-    # Reactions_4 (each column sums to 100)
-    "react_alloc_self_yr1":         "70",
-    "react_alloc_self_yr2":         "70",
-    "react_alloc_self_yr3":         "70",
-    "react_alloc_parents_yr1":      "10",
-    "react_alloc_parents_yr2":      "10",
-    "react_alloc_parents_yr3":      "10",
-    "react_alloc_other_family_yr1": "10",
-    "react_alloc_other_family_yr2": "10",
-    "react_alloc_other_family_yr3": "10",
-    "react_alloc_others_yr1":       "10",
-    "react_alloc_others_yr2":       "10",
-    "react_alloc_others_yr3":       "10",
     # Reactions_2_Followup_A2 likert
     "react_followup2_i":  "3",
     "react_followup2_ii": "2",
@@ -195,24 +173,6 @@ RADIO_VALUES_BASE = {
     "Demographics_Sex":      "1",
     "Demographics_Education":"3",
     "Demographics_Children": "2",
-    # Demographics_2
-    "Demographics_RiskAversion":  "4",
-    "Demographics_Sacrifice":     "4",
-    "Demographics_FinInterest":   "3",
-    "Demographics_PurchaseRegret":"2",
-    "Demographics_Debt":          "3",
-    "Demographics_DebtAverage":   "3",
-    "Demographics_Anxious":       "2",
-    "Demographics_Choices":       "4",
-    "Demographics_Knowledge":     "2",
-    # Demographics_3
-    "interest_rate_inflation": "3",
-    "bonds_riskier":           "2",
-    "highest_return_asset":    "2",
-    "risk_spreading_money":    "2",
-    "savings_interest":        "1",
-    "stock_mutual_fund":       "1",
-    "mortgage_payments":       "1",
     # Inh_Followup_A  (2 = no effect → triggers B/C/D chain)
     "inh_followup_effect":  "2",
     # Inh_Followup_B  (2 = have thought about it → triggers C/D)
@@ -226,7 +186,7 @@ RADIO_VALUES_BASE = {
 
 # Persona A — spender: spend totalling £30 000 (< £50 000 payment)
 # → triggers "spending less than payment" warning modal on Reactions_2
-# → positive in all years → Reactions_3/4/5/6 + Followup_B + Inh_Followup chain
+# → positive in all years → Reactions_5/6 + Inh_Followup chain
 PERSONA_A = {
     "number": {
         "Demographics_Mother":           "65",
@@ -244,7 +204,7 @@ PERSONA_A = {
 
 # Persona B — zero pre-receipt: yr1/2 = 0, yr3+ positive, total = £30 000
 # → triggers sub-£50k modal on Reactions_2 (same modal variant as A)
-# → zero pre-receipt → Reactions_2_Followup_A1 + A2
+# → zero pre-receipt → Reactions_2_Followup_A2
 # → qualifies for Inh_Followup chain
 PERSONA_B = {
     "number": {

@@ -1,7 +1,6 @@
 from otree.api import *
 import ast
 import json
-import math
 import random
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -26,8 +25,6 @@ class C(BaseConstants):
     NUM_ROUNDS = 1
     MIN_TEXT_LENGTH = 1
     KEYLOG_EVENT_CAP = 2000
-    ALLOCATION_TARGET_PCT = 100.0
-    ALLOCATION_TOLERANCE_PCT = 0.1
     REACTION_SPEND_MIN = -5000
     REACTION_SPEND_MAX = 75000
     REACTION_SPEND_TOTAL_MAX = 75000
@@ -422,13 +419,6 @@ class Player(BasePlayer):
     react_yr4_initial = models.IntegerField(blank=True)
     react_yr5_initial = models.IntegerField(blank=True)
 
-    # Reactions_2_Followup_B
-    react9 = models.LongStringField(
-        label='Please explain briefly why you would adjust your spending like this over the upcoming years:', blank=True)
-    
-    # Reactions_2_Follow-up_A1
-    react_followup1 = models.LongStringField(blank=True, label='You expressed that the future payment affects your spending plans mostly after you receive the payment, not before. Briefly explain why.')
-
     # Reactions_2_Follow-up_A2
     react_followup2_i = models.IntegerField(blank=True, min=1, max=5, label='I keep future payments such as this one in a different budget than the budget that I use to determine my current spending')
     react_followup2_ii = models.IntegerField(blank=True, min=1, max=5, label='It would be morally wrong to spend the money before I receive it')
@@ -438,37 +428,6 @@ class Player(BasePlayer):
     react_followup2_vi = models.IntegerField(blank=True, min=1, max=5, label='I consider that there is too much uncertainty in the timing and value of the payment')
     react_followup2_other = models.LongStringField(blank=True, label='Other reason. Please specify:')
     react_followup2_order = models.LongStringField(blank=True)
-
-    # Reactions_3
-    react_durable_yr1 = models.FloatField(
-        label='Durable goods (e.g., cars, furniture, jewelry, etc.):', min=None, blank=False)
-    react_durable_yr2 = models.FloatField(min=None, blank=False)
-    react_durable_yr3 = models.FloatField(min=None, blank=False)
-
-    react_nondurable_services_yr1 = models.FloatField(
-        label='Non-durable goods and services that do not last for a long time (e.g., food, clothes, vacation, etc.):', min=None, blank=False)
-    react_nondurable_services_yr2 = models.FloatField(min=None, blank=False)
-    react_nondurable_services_yr3 = models.FloatField(min=None, blank=False)
-
-    # Randomized display order of the durable vs. non-durable rows shown on Reactions_3
-    reac3_order_dur_nondur = models.StringField(blank=True)
-
-    # Reactions_4
-    react_alloc_self_yr1 = models.FloatField(label='yourself', min=0, max=100, blank=False)
-    react_alloc_self_yr2 = models.FloatField(min=0, max=100, blank=False)
-    react_alloc_self_yr3 = models.FloatField(min=0, max=100, blank=False)
-
-    react_alloc_parents_yr1 = models.FloatField(label='your parents', min=0, max=100, blank=False)
-    react_alloc_parents_yr2 = models.FloatField(min=0, max=100, blank=False)
-    react_alloc_parents_yr3 = models.FloatField(min=0, max=100, blank=False)
-
-    react_alloc_other_family_yr1 = models.FloatField(label='other family (e.g., children) or friends', min=0, max=100, blank=False)
-    react_alloc_other_family_yr2 = models.FloatField(min=0, max=100, blank=False)
-    react_alloc_other_family_yr3 = models.FloatField(min=0, max=100, blank=False)
-
-    react_alloc_others_yr1 = models.FloatField(label='others (e.g., donations to a charity)', min=0, max=100, blank=False)
-    react_alloc_others_yr2 = models.FloatField(min=0, max=100, blank=False)
-    react_alloc_others_yr3 = models.FloatField(min=0, max=100, blank=False)
 
     # Reactions_5
     react20 = models.LongStringField(
@@ -621,163 +580,6 @@ class Player(BasePlayer):
 
     Demographics_FatherInheritance = models.IntegerField(
         label=f"How much do you expect to inherit from your father (in {C.DEFAULT_CURRENCY_SYMBOL})? Please enter the approximate value of the inheritance if your father has passed away already, or 42 if you do not know / do not want to respond.", min=0, max=100_000_000, blank=True)
-
-    # Demographics 2
-    Demographics_RiskAversion = models.IntegerField(
-        label='In general, how willing or unwilling are you to take risks? Please select a category between 1 ("Completely unwilling to take risks") to 7 ("Very willing to take risks").',
-        choices=range(1, 8),
-        initial=None,
-        widget=widgets.RadioSelectHorizontal()
-    )
-
-    Demographics_Sacrifice = models.IntegerField(
-        label='In general, how willing or unwilling are you to give up something that is beneficial for you today in order to benefit more from that in the future? Please select a category between 1 ("Completely unwilling to give up") to 7 ("Very willing to give up").',
-        choices = range(1, 8),
-        initial = None,
-        widget = widgets.RadioSelectHorizontal()
-    )
-
-    Demographics_FinInterest = models.IntegerField(
-        label='Are you interested in financial markets? Please select a category between 1 ("not at all") and 7 ("very much").',
-        choices=range(1, 8),
-        initial=None,
-        widget=widgets.RadioSelectHorizontal()
-    )
-
-    Demographics_PurchaseRegret = models.IntegerField(
-        label='People sometimes buy things that they later wish they had not bought. How often do you or other household members make purchases that you later regret?',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Never'],
-            [2, 'Rarely'],
-            [3, 'Sometimes'],
-            [4, 'Often'],
-            [5, 'Very often'],
-        ])
-    
-    Demographics_Debt = models.IntegerField(
-        verbose_name='Please assess the following statement: "Debt is an integral part of life today." Please select a category between 1 (“Strongly disagree”) to 5 (“Strongly agree”).',
-        choices=range(1, 6),
-        initial=None,
-        widget=widgets.RadioSelectHorizontal(),
-        blank=False)
-
-    Demographics_DebtAverage = models.IntegerField(
-        verbose_name='What do you think, how does the average participant in this survey rate the following statement: "There is no excuse for borrowing money." Please select a category between 1 (“Strongly disagree”) to 5 (“Strongly agree”).',
-        choices=range(1, 6),
-        initial=None,
-        widget=widgets.RadioSelectHorizontal(),
-        blank=False)
-
-    Demographics_Anxious = models.IntegerField(
-        label='"Thinking about my personal finances can make me feel anxious."',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Strongly disagree'],
-            [2, 'Disagree'],
-            [3, 'Neutral'],
-            [4, 'Agree'],
-            [5, 'Strongly agree'],
-        ])
-
-    Demographics_Choices = models.IntegerField(
-        label='"I carefully think about the time spent, effort, and cost resulting from choices I make."',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Strongly disagree'],
-            [2, 'Disagree'],
-            [3, 'Neutral'],
-            [4, 'Agree'],
-            [5, 'Strongly agree'],
-        ])
-
-    Demographics_Knowledge = models.IntegerField(
-        label='"I know a lot about investing into stocks."',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Strongly disagree'],
-            [2, 'Disagree'],
-            [3, 'Neutral'],
-            [4, 'Agree'],
-            [5, 'Strongly agree'],
-        ])
-
-    # Demographics 3
-    interest_rate_inflation = models.IntegerField(
-        label='Imagine that the interest rate on your savings account was 1% per year and inflation was 2% per year. After 1 year, would you be able to buy:',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1,
-                f"More than today with the money in this account ({C.DEFAULT_CURRENCY_SYMBOL}1,000)"],
-            [2,
-                f"Exactly the same as today with the money in this account ({C.DEFAULT_CURRENCY_SYMBOL}1,000)"],
-            [3,
-                f"Less than today with the money in this account ({C.DEFAULT_CURRENCY_SYMBOL}1,000)"],
-            [4, "Don’t know"],
-            [5, "Prefer not to say"]
-        ])
-
-    bonds_riskier = models.IntegerField(
-        label='Do you think that the following statement is true or false? “Bonds are normally riskier than stocks.”',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, "True"],
-            [2, "False"],
-            [3, "Don’t know"],
-            [4, "Prefer not to say"]]
-    )
-
-    highest_return_asset = models.IntegerField(
-        label='Considering a long time period (for example, 10 or 20 years), which asset described below normally gives the highest return?',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, "Savings accounts"],
-            [2, "Stocks"],
-            [3, "Bonds"],
-            [4, "Don’t know"],
-            [5, "Prefer not to say"]
-        ])
-
-    risk_spreading_money = models.IntegerField(
-        label='When an investor spreads their money among different assets, does the risk of losing a lot of money:',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, "Increase"],
-            [2, "Decrease"],
-            [3, "Stay the same"],
-            [4, "Don’t know"],
-            [5, "Prefer not to say"]
-        ])
-
-    savings_interest = models.IntegerField(
-        label=f'Suppose you have {C.DEFAULT_CURRENCY_SYMBOL}100 in a savings account and the interest rate is 2% per year and you never withdraw money or interest payments. After 5 years, how much would you have in this account in total?',
-        widget=widgets.RadioSelect,
-        choices=[[1, f"More than {C.DEFAULT_CURRENCY_SYMBOL}110"],
-                 [2, f"Exactly {C.DEFAULT_CURRENCY_SYMBOL}110"],
-                 [3, f"Less than {C.DEFAULT_CURRENCY_SYMBOL}110"],
-                 [4, "Don’t know"],
-                 [5, "Prefer not to say"]
-        ])
-
-    stock_mutual_fund = models.IntegerField(
-        label=f'Do you think that the following statement is true or false? "A stock mutual fund combines the money of many investors to buy a variety of stocks"',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, "True"],
-            [2, "False"],
-            [3, "Don’t know"],
-            [4, "Prefer not to say"]]
-    )
-
-    mortgage_payments = models.IntegerField(
-        label=f'Do you think that the following statement is true or false? "A 15-year mortgage typically requires higher monthly payments than a 30-year mortgage, but the total interest paid over the life of the loan will be less."',
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, "True"],
-            [2, "False"],
-            [3, "Don’t know"],
-            [4, "Prefer not to say"]]
-    )
 
     # Concluding survey inheritance follow-up
     inh_followup_effect = models.IntegerField(blank=True)
@@ -1935,13 +1737,13 @@ class Reactions_2(Page):
 def _reactions2_backloaded(player: Player):
     """True when the spending change is concentrated after the payment is
     received (Years 3-4) rather than before it (Years 1-2). This is the
-    condition that routes future-payment participants to Followup A1/A2.
+    condition that routes future-payment participants to Followup A2.
 
     Magnitudes are compared so the check still works when reactions are
     negative (planned spending reductions): what matters is where the bulk
     of the *change* sits, not its sign. When there is no Year 3-4 change,
     it is never treated as back-loaded (so an early-only change, including
-    all-zero - goes to Followup B instead).
+    all-zero, gets no follow-up).
     """
     before = (
         (player.field_maybe_none('react_yr1') or 0) +
@@ -1952,76 +1754,6 @@ def _reactions2_backloaded(player: Player):
         (player.field_maybe_none('react_yr4') or 0)
     )
     return player.future_present == 1 and abs(before) < 0.5 * abs(after)
-
-
-class Reactions_2_Followup_B(Page):
-    form_model = 'player'
-    form_fields = ['react9']
-
-    @staticmethod
-    def is_displayed(player: Player):
-        # Shown whenever the A1/A2 follow-up branch does not apply.
-        # This includes the all-zero case: those participants see this page and then skip Reactions_3 and Reactions_4.
-        return not _reactions2_backloaded(player)
-    
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config['testing'],
-            'group': player.assigned_group,
-            'variation': player.participant.vars.get('variation'),
-            'info_subtype': player.info_subtype,
-            'react_yr1': player.react_yr1,
-            'react_yr2': player.react_yr2,
-            'react_yr3': player.react_yr3,
-            'react_yr4': player.react_yr4,
-            'react_yr5': player.react_yr5,
-            'payment_position': payment_position,
-            'payment_label': payment_label,
-            'arrow_left_percent': payment_position * 25
-        }
-    
-    @staticmethod
-    def error_message(player: Player, values):
-        errors = {}
-        if not values.get('react9') or len(values.get('react9', '').strip()) < 1:
-            errors['react9'] = 'This field is required.'
-        return errors if errors else None
-
-
-class Reactions_2_Followup_A1(Page):
-    form_model = 'player'
-    form_fields = ['react_followup1']
-
-    @staticmethod
-    def is_displayed(player: Player):
-        return _reactions2_backloaded(player)
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config['testing'],
-            'group': player.assigned_group,
-            'variation': player.participant.vars.get('variation'),
-            'info_subtype': player.info_subtype,
-            'react_yr1': player.react_yr1,
-            'react_yr2': player.react_yr2,
-            'react_yr3': player.react_yr3,
-            'react_yr4': player.react_yr4,
-            'react_yr5': player.react_yr5,
-            'payment_position': payment_position,
-            'payment_label': payment_label,
-            'arrow_left_percent': payment_position * 25
-        }
-    
-    @staticmethod
-    def error_message(player: Player, values):
-        errors = {}
-        if not values.get('react_followup1') or len(values.get('react_followup1', '').strip()) < 1:
-            errors['react_followup1'] = 'This field is required.'
-        return errors if errors else None
 
 
 class Reactions_2_Followup_A2(Page):
@@ -2111,174 +1843,6 @@ class Reactions_2_Followup_A2(Page):
                 errors[field] = 'This field is required.'
         return errors if errors else None
     
-
-class Reactions_3(Page):
-    form_model = 'player'
-    form_fields = [
-        'react_durable_yr1', 'react_durable_yr2', 'react_durable_yr3',
-        'react_nondurable_services_yr1', 'react_nondurable_services_yr2', 'react_nondurable_services_yr3']
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = 'Not Set'
-        
-        payment_position, payment_label = get_timeline_vars(player)
-
-        row_order = player.participant.vars.get('react5_row_order')
-        valid_order = isinstance(row_order, (list, tuple)) and set(row_order) == {
-            'durable',
-            'nondurable_services',
-        }
-        if not valid_order:
-            row_order = ['durable', 'nondurable_services']
-            random.shuffle(row_order)
-            player.participant.vars['react5_row_order'] = row_order
-        else:
-            row_order = list(row_order)
-
-        # Record the randomized row order on the player so it is exported in the oTree data.
-        player.reac3_order_dur_nondur = ', '.join(row_order)
-
-        return {'testing': player.session.config["testing"],
-                'group': player.participant.vars['assigned_group'],
-                'variation': player.participant.vars['variation'],
-                'info_subtype': player.info_subtype,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25,
-                'react5_row_order': row_order,
-                'allocation_target': C.ALLOCATION_TARGET_PCT,
-                'allocation_tolerance': C.ALLOCATION_TOLERANCE_PCT}
-
-    @staticmethod
-    def error_message(player: Player, values):
-        fields = [
-            'react_durable_yr1', 'react_durable_yr2', 'react_durable_yr3',
-            'react_nondurable_services_yr1', 'react_nondurable_services_yr2', 'react_nondurable_services_yr3',
-        ]
-        errors = {}
-        nums = {}
-        for field in fields:
-            value = values.get(field)
-            if value is None:
-                errors[field] = 'Please enter a percentage for this field.'
-                continue
-            try:
-                num = float(value)
-            except (TypeError, ValueError):
-                errors[field] = 'Please enter a valid number.'
-                continue
-            if not math.isfinite(num):
-                errors[field] = 'Please enter a finite number.'
-                continue
-            nums[field] = num
-            if nums[field] < 0 or nums[field] > 100:
-                errors[field] = 'Please enter a percentage between 0 and 100.'
-
-        if errors:
-            return errors
-
-        tolerance = C.ALLOCATION_TOLERANCE_PCT
-        target = C.ALLOCATION_TARGET_PCT
-        column_fields = {
-            'Years 1 and 2': ['react_durable_yr1', 'react_nondurable_services_yr1'],
-            'Years 3 and 4': ['react_durable_yr2', 'react_nondurable_services_yr2'],
-            'Rest of your life': ['react_durable_yr3', 'react_nondurable_services_yr3'],
-        }
-        column_totals = {
-            name: sum(nums[field] for field in fields)
-            for name, fields in column_fields.items()
-        }
-
-        for name, total in column_totals.items():
-            if abs(total - target) > tolerance:
-                message = (
-                    f'Each time period total must sum to {target:.1f}%. '
-                    f'Current total for {name}: {total:.1f}%.'
-                )
-                for field in column_fields[name]:
-                    errors[field] = message
-
-        return errors if errors else None
-
-    @staticmethod
-    def is_displayed(player: Player):
-        fields = [player.react_yr1, player.react_yr2, player.react_yr3, player.react_yr4, player.react_yr5]
-        return not all(f is f == 0 for f in fields)
-
-
-class Reactions_4(Page):
-    form_model = 'player'
-    form_fields = [
-        'react_alloc_self_yr1', 'react_alloc_self_yr2', 'react_alloc_self_yr3',
-        'react_alloc_parents_yr1', 'react_alloc_parents_yr2', 'react_alloc_parents_yr3',
-        'react_alloc_other_family_yr1', 'react_alloc_other_family_yr2', 'react_alloc_other_family_yr3',
-        'react_alloc_others_yr1', 'react_alloc_others_yr2', 'react_alloc_others_yr3',
-    ]
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = 'Not Set'
-
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config["testing"],
-            'group': player.participant.vars['assigned_group'],
-            'variation': player.participant.vars['variation'],
-            'info_subtype': player.info_subtype,
-            'payment_position': payment_position,
-            'payment_label': payment_label,
-            'arrow_left_percent': payment_position * 25,
-            'allocation_target': C.ALLOCATION_TARGET_PCT,
-            'allocation_tolerance': C.ALLOCATION_TOLERANCE_PCT,
-        }
-
-    @staticmethod
-    def error_message(player: Player, values):
-        fields_by_column = {
-                'Years 1 and 2': ['react_alloc_self_yr1', 'react_alloc_parents_yr1', 'react_alloc_other_family_yr1', 'react_alloc_others_yr1'],
-                'Years 3 and 4': ['react_alloc_self_yr2', 'react_alloc_parents_yr2', 'react_alloc_other_family_yr2', 'react_alloc_others_yr2'],
-                'Rest of your life': ['react_alloc_self_yr3', 'react_alloc_parents_yr3', 'react_alloc_other_family_yr3', 'react_alloc_others_yr3'],
-        }
-
-        errors = {}
-
-        for col_name, fields in fields_by_column.items():
-            nums = []
-            for field in fields:
-                value = values.get(field)
-                if value is None:
-                    errors[field] = 'Please enter a percentage for this field.'
-                    continue
-                try:
-                    num = float(value)
-                except (TypeError, ValueError):
-                    errors[field] = 'Please enter a valid number.'
-                    continue
-                if not math.isfinite(num):
-                    errors[field] = 'Please enter a finite number.'
-                    continue
-                if num < 0 or num > 100:
-                    errors[field] = 'Please enter a percentage between 0 and 100.'
-                    continue
-                nums.append((field, num))
-
-            if len(nums) == 4:
-                total = sum(n for _, n in nums)
-                if abs(total - C.ALLOCATION_TARGET_PCT) > C.ALLOCATION_TOLERANCE_PCT:
-                    msg = f'The four percentages must sum to 100.0%. Current total for {col_name}: {total:.1f}%.'
-                    for field, _ in nums:
-                        errors[field] = msg
-
-        return errors if errors else None
-
-    @staticmethod
-    def is_displayed(player: Player):
-        fields = [player.react_yr1, player.react_yr2, player.react_yr3, player.react_yr4, player.react_yr5]
-        return not all(f is f == 0 for f in fields)
-
 
 class Reactions_5(Page):
     form_model = 'player'
@@ -2544,40 +2108,6 @@ class Inh_Followup_D(Page):
         return errors if errors else None
 
 
-class Demographics_2(Page):
-    form_model = 'player'
-    form_fields = [
-        "Demographics_RiskAversion",
-        "Demographics_Sacrifice",
-        "Demographics_FinInterest",
-        "Demographics_PurchaseRegret",
-        "Demographics_Debt",
-        "Demographics_DebtAverage",        
-        "Demographics_Anxious",
-        "Demographics_Choices",
-        "Demographics_Knowledge",]
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        return {'testing': player.session.config["testing"]}
-
-
-class Demographics_3(Page):
-    form_model = 'player'
-    form_fields = [
-        "interest_rate_inflation",
-        "bonds_riskier",
-        "highest_return_asset",
-        "risk_spreading_money",
-        "savings_interest",
-        "stock_mutual_fund",
-        "mortgage_payments"]
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        return {'testing': player.session.config["testing"]}
-
-
 class Feedback(Page):
     form_model = 'player'
     form_fields = ['OpenFeedback']
@@ -2607,11 +2137,11 @@ page_sequence = [
 
     ComprehensionTest,
 
-    Reactions_1, Reactions_2, Reactions_2_Followup_A1, Reactions_2_Followup_A2, Reactions_2_Followup_B, Reactions_3, Reactions_4,
+    Reactions_1, Reactions_2, Reactions_2_Followup_A2,
     Reactions_5, Reactions_6,
 
     AttentionCheck1_AI, AttentionCheck2_AI, BotScreening,
 
-    Demographics_1, Inh_Followup_A, Inh_Followup_B, Inh_Followup_C, Inh_Followup_D, Demographics_2, Demographics_3,
+    Demographics_1, Inh_Followup_A, Inh_Followup_B, Inh_Followup_C, Inh_Followup_D,
 
     Feedback, LinkToProlific]
