@@ -1,0 +1,77 @@
+{{ extends "global/Page.html" }}
+
+{{ block title }}
+    Your Financial Plan
+{{ endblock }}
+
+{{ block styles }}
+    {{ include "CS1/partials/plan_tool_styles.html" }}
+{{ endblock }}
+
+{{ block content }}
+    <div class="plan-box bg-light">
+        <strong>Reminder:</strong> Imagine you are {{ current_age }} years old and planning for your retirement.
+        You have savings of {{ initial_wealth }}, which earn {{ interest_percent }}% interest per year.
+        {{ if work_years }}Until age {{ last_work_age }}, you earn a salary of {{ salary }} per year after taxes.{{ endif }}
+        From age {{ retirement_age }} onwards, you receive a pension of {{ pension }} per year after taxes.
+        There is no inflation: prices stay the same in every year.
+    </div>
+
+    <div style="margin-top: 20px;">
+        <strong>Please enter how much you plan to spend in each of the next {{ plan_years }} years.</strong>
+        The table updates as you type.
+    </div>
+
+    <div class="plan-table-wrapper">
+        <table class="plan-table">
+            {{ include "CS1/partials/plan_table_head.html" }}
+            <tbody>
+                <tr>
+                    <td class="plan-label">Income that year</td>
+                    {{ for year in years }}<td>{{ year.income }}</td>{{ endfor }}
+                </tr>
+                <tr class="plan-input-row">
+                    <td class="plan-label">Spending that year</td>
+                    {{ for field in form }}
+                        <td>
+                            <div class="plan-money"><span class="plan-money-symbol">{{ C.DEFAULT_CURRENCY_SYMBOL }}</span>{{ field }}</div>
+                            {{ formfield_errors field.name }}
+                        </td>
+                    {{ endfor }}
+                </tr>
+                <tr>
+                    <td class="plan-label">Savings that year</td>
+                    {{ for year in years }}<td id="plan-saving-{{ year.number }}">–</td>{{ endfor }}
+                </tr>
+                <tr class="plan-total">
+                    <td class="plan-label">Total savings</td>
+                    {{ for year in years }}<td id="plan-total-{{ year.number }}">–</td>{{ endfor }}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <ul class="plan-notes" id="plan-notes"></ul>
+
+    <div class="plan-error" id="plan-error" role="alert"></div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+    {{ if testing }}
+        <button id="skipBtn" class="btn btn-secondary px-3" type="button" onclick="skipPage()">
+            Skip for testing
+        </button>
+    {{ endif }}
+{{ endblock }}
+
+{{ block scripts }}
+    {{ include "CS1/partials/plan_tool_scripts.html" }}
+    <script>
+        function skipPage() {
+            // the plan of ToyLifecycleTool.xlsx
+            planFill([27000, 27000, 27000, 27000, 25000, 25000, 25000, 25000]);
+        }
+    </script>
+{{ endblock }}

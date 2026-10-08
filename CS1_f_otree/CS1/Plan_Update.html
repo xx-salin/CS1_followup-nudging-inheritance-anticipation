@@ -1,0 +1,153 @@
+{{ extends "global/Page.html" }}
+
+{{ block title }}
+    Scenario {{ scenario_number }} (of 2) - Your Reaction
+{{ endblock }}
+
+{{ block styles }}
+    {{ include "CS1/partials/plan_tool_styles.html" }}
+{{ endblock }}
+
+{{ block content }}
+    <div style="font-size:18px">Reminder about the scenario:</div>
+    <div class="plan-box bg-light" style="margin-top: 10px;">
+        <strong>Scenario {{ scenario_number }}</strong><br><br>
+        {{ scenario_text }}
+        <br><br>
+        Assume there is no uncertainty in the timing or amount of the payment.
+        As before, there is no inflation: prices stay the same in every year.
+    </div>
+
+    <div style="margin-top: 20px;">
+        {{ if layout == 'reframed' }}
+            <strong>Please enter your plan for spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
+            The table and the graph update as you type.
+        {{ elif layout == 'natural_1' }}
+            <strong>Please enter your plan for changes in spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
+            The table and the graph update as you type.
+        {{ else }}
+            <strong>Please enter how this would change your spending plans for each of the coming {{ plan_years }} years.</strong>
+        {{ endif }}
+    </div>
+    {{ if layout != 'reframed' }}
+        <div style="margin-top: 5px;">
+            Note: If the scenario would make you spend more in a given year than in your initial plan, please type a positive amount.
+            Conversely, type a negative amount if the scenario would make you spend less.
+            Type zero (0) if the scenario would not affect your spending in a given year.
+        </div>
+    {{ endif }}
+
+    {{ if layout != 'natural_2' }}
+        <div class="plan-overview">
+            {{ if layout == 'reframed' }}
+                <div class="plan-chart" id="plan-chart" data-title="Spending each Year" data-axis="Spending that Year"
+                     data-min-scale="{{ chart_min_scale }}"></div>
+            {{ else }}
+                <div class="plan-chart" id="plan-chart" data-title="Change in Spending each Year as a Reaction to the Scenario"
+                     data-axis="Change in Spending that Year" data-min-scale="{{ chart_min_scale }}"></div>
+            {{ endif }}
+            <ul class="plan-notes" id="plan-notes"></ul>
+        </div>
+    {{ endif }}
+
+    <div class="plan-table-wrapper">
+        <table class="plan-table">
+            {{ include "CS1/partials/plan_table_head.html" }}
+            <tbody>
+                {{ if layout != 'natural_2' }}
+                    <tr>
+                        <td class="plan-label">Income that year</td>
+                        {{ for year in years }}<td>{{ year.income }}</td>{{ endfor }}
+                    </tr>
+                {{ endif }}
+                <tr>
+                    <td class="plan-label">Inheritance</td>
+                    {{ for year in years }}<td {{ if year.is_inheritance_year }}class="plan-inheritance-year"{{ endif }}>{{ year.inheritance }}</td>{{ endfor }}
+                </tr>
+                {{ if layout != 'natural_2' }}
+                    <tr>
+                        <td class="plan-label">Spending that year from initial plan</td>
+                        {{ for year in years }}<td>{{ year.base_spend }}</td>{{ endfor }}
+                    </tr>
+                {{ endif }}
+                <tr class="plan-input-row">
+                    <td class="plan-label">
+                        {{ if layout == 'reframed' }}
+                            Updated spending that year
+                        {{ else }}
+                            Change in spending that year as a reaction
+                        {{ endif }}
+                    </td>
+                    {{ for field in form }}
+                        <td>
+                            <div class="plan-money"><span class="plan-money-symbol">{{ C.DEFAULT_CURRENCY_SYMBOL }}</span>{{ field }}</div>
+                            {{ formfield_errors field.name }}
+                        </td>
+                    {{ endfor }}
+                </tr>
+                {{ if layout != 'natural_2' }}
+                    <tr>
+                        <td class="plan-label">Savings that year</td>
+                        {{ for year in years }}<td id="plan-saving-{{ year.number }}">–</td>{{ endfor }}
+                    </tr>
+                    <tr class="plan-total">
+                        <td class="plan-label">Total savings</td>
+                        {{ for year in years }}<td id="plan-total-{{ year.number }}">–</td>{{ endfor }}
+                    </tr>
+                {{ endif }}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="plan-error" id="plan-error" role="alert"></div>
+
+    {{ if layout == 'natural_2' }}
+        <div style="margin-top: 30px;"><strong>Reminder: Initial Financial Plan</strong></div>
+        <div class="plan-table-wrapper">
+            <table class="plan-table">
+                {{ include "CS1/partials/plan_table_head.html" }}
+                <tbody>
+                    <tr>
+                        <td class="plan-label">Income that year</td>
+                        {{ for year in years }}<td>{{ year.income }}</td>{{ endfor }}
+                    </tr>
+                    <tr>
+                        <td class="plan-label">Spending that year</td>
+                        {{ for year in years }}<td>{{ year.base_spend }}</td>{{ endfor }}
+                    </tr>
+                    <tr>
+                        <td class="plan-label">Savings that year</td>
+                        {{ for year in years }}<td {{ if year.base_saving_negative }}class="plan-negative"{{ endif }}>{{ year.base_saving }}</td>{{ endfor }}
+                    </tr>
+                    <tr class="plan-total">
+                        <td class="plan-label">Total savings</td>
+                        {{ for year in years }}<td>{{ year.base_total }}</td>{{ endfor }}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <ul class="plan-notes">
+            {{ for note in base_notes }}<li>{{ note }}</li>{{ endfor }}
+        </ul>
+    {{ endif }}
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+    {{ if testing }}
+        <button id="skipBtn" class="btn btn-secondary px-3" type="button" onclick="skipPage()">
+            Skip for testing
+        </button>
+    {{ endif }}
+{{ endblock }}
+
+{{ block scripts }}
+    {{ include "CS1/partials/plan_tool_scripts.html" }}
+    <script>
+        function skipPage() {
+            // no change in spending
+            planFill(js_vars.mode === 'level' ? js_vars.base_spend : js_vars.base_spend.map(function () { return 0; }));
+        }
+    </script>
+{{ endblock }}

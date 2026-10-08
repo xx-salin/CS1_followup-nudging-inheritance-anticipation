@@ -15,6 +15,16 @@ SESSION_CONFIGS = [
         'num_demo_participants': 41,
         'app_sequence': ['CS1'],
         'testing': True,
+        # Lifecycle planning tool (defaults as in ToyLifecycleTool.xlsx)
+        'initial_wealth': 120000,
+        'salary': 30253,
+        'pension': 17264,
+        'interest_rate': 0.03,
+        'inheritance': 50000,
+        'current_age': 62,
+        'retirement_age': 67,  # first age at which income = pension
+        'inheritance_delay_years': 2,  # future scenario: years between the first plan year and the inheritance
+        'bequest_age': 90,
     }]
 
 ROOM_DEFAULTS = {}

@@ -6,16 +6,16 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 
 doc = """
-This study is about the effect of emotional affection in inheritances on consumption.
-It measures how much participants understand being able to move cash flows and the effect different levels of 
-emotional affection have on consumption.
+Follow-up to CS1: does the way spending reactions are elicited change the reaction to an inheritance?
 
-This survey asks questions from participants of the survey in three sections: 
-Firstly, it asks all participants the same basic information questions.
-Secondly, it divides participants into 8 groups with different questions. 
-8 groups consist of [Now, Future] * [No emotional attachment, Large emotional attachment] * [Certain, Uncertain] * [Additional Info, No Additional Info]
-Thirdly, it moves all participants back to the same main group where each participant has 
-the same questions in randomized order.
+Participants take the role of a 62-year-old planning for retirement and fill out a spending plan in a
+lifecycle planning tool (see ToyLifecycleTool.xlsx). They then face two scenarios in random order
+(within-subject) in which they inherit a one-time payment either today or in the future, and update
+their plan in one of three layouts (between-subject, named after the sheets of the tool):
+    natural_2: enter the change in spending per year; the initial plan is shown as a static reminder
+    natural_1: enter the change in spending per year; the tool and a graph update dynamically
+    reframed:  enter the updated spending per year; the tool and a graph update dynamically
+The concluding survey covers demographics and the participant's own expected parental inheritance.
 """
 
 
@@ -23,11 +23,11 @@ class C(BaseConstants):
     NAME_IN_URL = 'CS1'
     PLAYERS_PER_GROUP = None
     NUM_ROUNDS = 1
-    MIN_TEXT_LENGTH = 1
     KEYLOG_EVENT_CAP = 2000
-    REACTION_SPEND_MIN = -5000
-    REACTION_SPEND_MAX = 75000
-    REACTION_SPEND_TOTAL_MAX = 75000
+    PLAN_YEARS = 8  # years for which spending is planned; spending stays constant afterwards
+    PLAN_HORIZON_AGE = 109  # savings are projected up to this age
+    LAYOUTS = ['natural_2', 'natural_1', 'reframed']
+    ROUND_ORDERS = ['present_first', 'future_first']
     CURRENCIES = {'AUD': 'A$', 'GBP': '£', 'EUR': '€', 'USD': '$'}
     COMPLICATED_WORDS = ['Schadenfreude', 'Bourgeoisie', 'Worcestershire']
     # Change DEFAULT_CURRENCY if looking to change the currency of the experiment.
@@ -38,7 +38,6 @@ class C(BaseConstants):
 RECAPTCHA_VERIFY_URL = 'https://www.google.com/recaptcha/api/siteverify'
 
 
-# Divide players into 4 groups in the order of the list 'groups' below.
 class Subsession(BaseSubsession):
     pass
 
@@ -47,15 +46,11 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
     # CREATING SESSION -
-    assigned_group = models.StringField()
     prolific_id = models.StringField(blank=True, label='Your Prolific ID')
-    spend_save = models.IntegerField(initial=0)  # spend = 1, save = 2
-    future_present = models.IntegerField()  # future = 1, present = 2
-    emotional_attachment = models.IntegerField(initial=0)  # tax (no attachment) = 1, parent (large attachment) = 2
-    uncertainty = models.IntegerField(initial=0) # uncertainty = 1, certainty = 2
-    scenario_info = models.BooleanField()
-    info_subtype = models.StringField(initial='0')  # disposable income = '5', net worth = '6', borrowing = '7', example all combo '567', none = '0' 
+    layout = models.StringField()  # natural_2 = change in spending, natural_1 = change in spending + dynamic tool, reframed = updated spending + dynamic tool
+    round_order = models.StringField()  # present_first / future_first
     mother_father = models.IntegerField(initial=0)  # mother = 1, father = 2
+    inh_followup_frame = models.IntegerField()  # spending frame = 1, saving frame = 2
     # BOT SCREENING (Attention checks?)
     attention1 = models.IntegerField(initial=2)
     attention2 = models.IntegerField(initial=2)
@@ -82,9 +77,6 @@ class Player(BasePlayer):
 
     ComplicatedWord_Corrections = models.IntegerField(initial=0)
     AI_Test2 = models.StringField(label='', initial='[]')
-    reactions2_keylog = models.LongStringField(initial='{}')
-    reactions3_keylog = models.LongStringField(initial='{}')
-    reactions6_keylog = models.LongStringField(initial='{}')
     keylog_timing_tuples = models.LongStringField(initial='')
     checks = models.IntegerField(initial=2)
 
@@ -94,437 +86,69 @@ class Player(BasePlayer):
 
     # INSTRUCTIONS_WELCOMESCREEN
     browser_first = models.CharField()
-    # INTRODUCTORY SURVEY
-    survey2_fieldorder = models.StringField()
     # ------------------------------------------------------------------------------------------------------------
-    # ---------------------------------------- INTRODUCTORY SURVEY --------------------------------------------
+    # ---------------------------------------- LIFECYCLE PLANNING TOOL -------------------------------------------
     # ------------------------------------------------------------------------------------------------------------
-    survey1_spend = models.IntegerField(
-        label = "What percentage of your disposable income (your income after taxes) do you spend in an average month?",
-        min=0, max=100, blank=False)
+    # y1..y8 are the plan years (ages 63 to 70 with the default parameters).
+    # depletion_age = last age with non-negative total savings (empty if they last beyond C.PLAN_HORIZON_AGE)
+    # bequest = total savings left at the bequest age
 
-    survey1_save = models.IntegerField(
-        label = "What percentage of your disposable income (your income after taxes) do you save in an average month?",
-        min=0, max=100, blank=False)
-    
-    survey2_DisposableIncome = models.IntegerField(
-        label="Your disposable income now",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
+    # Plan_Baseline: initial spending plan
+    base_spend_y1 = models.IntegerField(blank=True)
+    base_spend_y2 = models.IntegerField(blank=True)
+    base_spend_y3 = models.IntegerField(blank=True)
+    base_spend_y4 = models.IntegerField(blank=True)
+    base_spend_y5 = models.IntegerField(blank=True)
+    base_spend_y6 = models.IntegerField(blank=True)
+    base_spend_y7 = models.IntegerField(blank=True)
+    base_spend_y8 = models.IntegerField(blank=True)
+    base_depletion_age = models.IntegerField(blank=True)
+    base_bequest = models.FloatField(blank=True)
 
-    survey2_NetWealth = models.IntegerField(
-        label="Your current net wealth (your wealth minus any debt, e.g., credit card debt or mortgages)",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
+    # Plan_Scenario / Plan_Update with the inheritance today.
+    # The natural layouts ask for the change in spending, the reframed layout for the updated spending;
+    # the one that was not asked is derived (spend = base_spend + change).
+    # min=None: changes can be negative (oTree's default minimum for numbers is 0).
+    present_scenario_warning = models.IntegerField(initial=0)  # 1 = pressed Next within 10 seconds, 0 = waited 10 seconds
+    present_change_y1 = models.IntegerField(blank=True, min=None)
+    present_change_y2 = models.IntegerField(blank=True, min=None)
+    present_change_y3 = models.IntegerField(blank=True, min=None)
+    present_change_y4 = models.IntegerField(blank=True, min=None)
+    present_change_y5 = models.IntegerField(blank=True, min=None)
+    present_change_y6 = models.IntegerField(blank=True, min=None)
+    present_change_y7 = models.IntegerField(blank=True, min=None)
+    present_change_y8 = models.IntegerField(blank=True, min=None)
+    present_spend_y1 = models.IntegerField(blank=True)
+    present_spend_y2 = models.IntegerField(blank=True)
+    present_spend_y3 = models.IntegerField(blank=True)
+    present_spend_y4 = models.IntegerField(blank=True)
+    present_spend_y5 = models.IntegerField(blank=True)
+    present_spend_y6 = models.IntegerField(blank=True)
+    present_spend_y7 = models.IntegerField(blank=True)
+    present_spend_y8 = models.IntegerField(blank=True)
+    present_depletion_age = models.IntegerField(blank=True)
+    present_bequest = models.FloatField(blank=True)
 
-    survey2_FutureIncome = models.IntegerField(
-        label="Your expected regular future income until retirement (e.g., from your job).",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-    survey2_RetirementIncome = models.IntegerField(
-        label="Your expected regular income after retirement (e.g., from pensions and your retirement savings).",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-    survey2_IrregularPayments = models.IntegerField(
-        label="Expected gifts, inheritances, and irregular payments from others.",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-    survey2_InterestRates = models.IntegerField(
-        label="Interest rates or the return on savings (including stocks and changes in housing prices).",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-    survey2_Inflation = models.IntegerField(
-        label="Inflation",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-    survey2_CreditAccess = models.IntegerField(
-        label="Your ability to access credit (if needed)",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-    survey2_Caution = models.IntegerField(
-        label="Caution (preference to avoid risk)",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-    survey2_Impatience = models.IntegerField(
-        label="Impatience (preference to spend more now rather than later)",
-        widget=widgets.RadioSelect,
-        choices=[
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important']
-        ],
-        blank=True
-    )
-
-    survey2_TextBox = models.StringField(
-        label="Please list other relevant factors (if any) here:",
-        blank=True)
-
-    
-    # Survey 3 (Pre-Dem):
-    Demographics_Household_Income = models.IntegerField(
-        label='Which of the following best describes your total household income last year?',
-        widget=widgets.RadioSelect(),
-        choices=[
-            [0, f"{C.DEFAULT_CURRENCY_SYMBOL}0"],
-            [1, f"Less than {C.DEFAULT_CURRENCY_SYMBOL}10,000"],
-            [2, f"Between {C.DEFAULT_CURRENCY_SYMBOL}10,000 and {C.DEFAULT_CURRENCY_SYMBOL}20,000"],
-            [3, f"Between {C.DEFAULT_CURRENCY_SYMBOL}20,000 and {C.DEFAULT_CURRENCY_SYMBOL}40,000"],
-            [4, f"Between {C.DEFAULT_CURRENCY_SYMBOL}40,000 and {C.DEFAULT_CURRENCY_SYMBOL}80,000"],
-            [5, f"Between {C.DEFAULT_CURRENCY_SYMBOL}80,000 and {C.DEFAULT_CURRENCY_SYMBOL}160,000"],
-            [6, f"Between {C.DEFAULT_CURRENCY_SYMBOL}160,000 and {C.DEFAULT_CURRENCY_SYMBOL}320,000"],
-            [7, f"{C.DEFAULT_CURRENCY_SYMBOL}320,000 or more"],
-            [8, "Prefer not to say"]
-        ])
-
-    Demographics_LiquidWealth = models.IntegerField(
-        label='How much easily accessible savings do you own (e.g., money on bank accounts, investments in mutual funds or stocks, or other financial wealth)?',
-        widget=widgets.RadioSelect(),
-        choices=[
-            [0, f"{C.DEFAULT_CURRENCY_SYMBOL}0"],
-            [1, f"Less than {C.DEFAULT_CURRENCY_SYMBOL}5,000"],
-            [2, f"Between {C.DEFAULT_CURRENCY_SYMBOL}5,000 and {C.DEFAULT_CURRENCY_SYMBOL}10,000"],
-            [3, f"Between {C.DEFAULT_CURRENCY_SYMBOL}10,000 and {C.DEFAULT_CURRENCY_SYMBOL}15,000"],
-            [4, f"Between {C.DEFAULT_CURRENCY_SYMBOL}15,000 and {C.DEFAULT_CURRENCY_SYMBOL}20,000"],
-            [5, f"Between {C.DEFAULT_CURRENCY_SYMBOL}20,000 and {C.DEFAULT_CURRENCY_SYMBOL}25,000"],
-            [6, f"{C.DEFAULT_CURRENCY_SYMBOL}25,000 or more"],
-            [7, "Prefer not to say"]
-        ])
-
-    Demographics_IlliquidWealth = models.IntegerField(
-        label='How much other wealth do you own (e.g., value of your home, other real estate you own, or other non-financial assets)?',
-        widget=widgets.RadioSelect(),
-        choices=[
-            [0, f"{C.DEFAULT_CURRENCY_SYMBOL}0"],
-            [1, f"Less than {C.DEFAULT_CURRENCY_SYMBOL}20,000"],
-            [2, f"Between {C.DEFAULT_CURRENCY_SYMBOL}20,000 and {C.DEFAULT_CURRENCY_SYMBOL}40,000"],
-            [3, f"Between {C.DEFAULT_CURRENCY_SYMBOL}40,000 and {C.DEFAULT_CURRENCY_SYMBOL}80,000"],
-            [4, f"Between {C.DEFAULT_CURRENCY_SYMBOL}80,000 and {C.DEFAULT_CURRENCY_SYMBOL}160,000"],
-            [5, f"Between {C.DEFAULT_CURRENCY_SYMBOL}160,000 and {C.DEFAULT_CURRENCY_SYMBOL}320,000"],
-            [6, f"Between {C.DEFAULT_CURRENCY_SYMBOL}320,000 and {C.DEFAULT_CURRENCY_SYMBOL}640,000"],
-            [7, f"{C.DEFAULT_CURRENCY_SYMBOL}640,000 or more"],
-            [8, "Prefer not to say"]
-        ])
-
-    Demographics_DebtWealth = models.IntegerField(
-        label='How much debt do you owe (e.g., mortgages, credit card debt, or lines of credit)?',
-        widget=widgets.RadioSelect(),
-        choices=[
-            [0, f"{C.DEFAULT_CURRENCY_SYMBOL}0"],
-            [1, f"Less than {C.DEFAULT_CURRENCY_SYMBOL}20,000"],
-            [2, f"Between {C.DEFAULT_CURRENCY_SYMBOL}20,000 and {C.DEFAULT_CURRENCY_SYMBOL}40,000"],
-            [3, f"Between {C.DEFAULT_CURRENCY_SYMBOL}40,000 and {C.DEFAULT_CURRENCY_SYMBOL}80,000"],
-            [4, f"Between {C.DEFAULT_CURRENCY_SYMBOL}80,000 and {C.DEFAULT_CURRENCY_SYMBOL}160,000"],
-            [5, f"Between {C.DEFAULT_CURRENCY_SYMBOL}160,000 and {C.DEFAULT_CURRENCY_SYMBOL}320,000"],
-            [6, f"Between {C.DEFAULT_CURRENCY_SYMBOL}320,000 and {C.DEFAULT_CURRENCY_SYMBOL}640,000"],
-            [7, f"{C.DEFAULT_CURRENCY_SYMBOL}640,000 or more"],
-            [8, "Prefer not to say"]
-        ])
-
-    Demographics_LiquidityConstraints_1 = models.IntegerField(
-        label='Please assess the following statement: "I would be able to spend more today by using my disposable income."',
-        widget=widgets.RadioSelectHorizontal,
-        choices=[
-            [1, 'Strongly disagree'],
-            [2, 'Disagree'],
-            [3, 'Neutral'],
-            [4, 'Agree'],
-            [5, 'Strongly agree'],
-            [6, 'Do not know'],
-            [7, 'Prefer not to say'],
-        ])
-
-    Demographics_LiquidityConstraints_2 = models.IntegerField(
-        label='Please assess the following statement: "I would be able to spend more today by using my net wealth (e.g., savings invested in bank accounts or stocks)."',
-        widget=widgets.RadioSelectHorizontal,
-        choices=[
-            [1, 'Strongly disagree'],
-            [2, 'Disagree'],
-            [3, 'Neutral'],
-            [4, 'Agree'],
-            [5, 'Strongly agree'],
-            [6, 'Do not know'],
-            [7, 'Prefer not to say'],
-        ])
-
-    Demographics_LiquidityConstraints_3 = models.IntegerField(
-        label='Please assess the following statement: "I would be able to spend more today by borrowing money (e.g., using consumer credit).”',
-        widget=widgets.RadioSelectHorizontal,
-        choices=[
-            [1, 'Strongly disagree'],
-            [2, 'Disagree'],
-            [3, 'Neutral'],
-            [4, 'Agree'],
-            [5, 'Strongly agree'],
-            [6, 'Do not know'],
-            [7, 'Prefer not to say'],
-        ])
-
-
-    scenario_warning = models.IntegerField(initial=0) # 1 = pressed confirm before 10 seconds, 0 = waited 10 seconds or pressed cancel
-
-    # COMPREHENSION TEST
-    comp_q1_timing = models.IntegerField(
-        label='When is the payment made?',
-        choices=[
-            [1, 'Today'],
-            [2, 'In 2 years'],
-            [3, 'In 4 years'],
-        ],
-        widget=widgets.RadioSelect,
-    )
-
-    comp_q2_amount = models.IntegerField(
-        label='How large is the payment?',
-        choices=[
-            [1, f'{C.DEFAULT_CURRENCY_SYMBOL}5 000'],
-            [2, f'{C.DEFAULT_CURRENCY_SYMBOL}25 000'],
-            [3, f'{C.DEFAULT_CURRENCY_SYMBOL}50 000'],
-        ],
-        widget=widgets.RadioSelect,
-    )
-
-    comp_q3_reason = models.IntegerField(
-        label='Why are you receiving the payment?',
-        choices=[
-            [1, 'Salary'],
-            [2, 'Inheritance'],
-            [3, 'Tax refund'],
-        ],
-        widget=widgets.RadioSelect,
-    )
-
-    comp_failed_attempts = models.IntegerField(initial=0)
-    comp_wrong_history = models.LongStringField(initial='')
-
-    
-    # ------------------------------------------------------------------------------------------------------------
-    # --------------------------------------------- REACTIONS --------------------------------------------
-    # ------------------------------------------------------------------------------------------------------------
-
-    # Reactions_1
-    react3 = models.LongStringField(
-        label='How will you adjust your behavior in Year 1 and Year 2 (if at all)? Please consider your spending and saving, as well as your career plans (e.g., would you work more or less hours, or retire).', blank=False)
-
-    react4 = models.LongStringField(
-        label='How will you adjust your behavior in Year 3 and Year 4 (if at all)? Please consider your spending and saving, as well as your career plans (e.g., would you work more or less hours, or retire).', blank=False)
-
-    react5 = models.LongStringField(
-        label='How will you adjust your behavior for the rest of your life after Year 4 (if at all)? Please consider your spending and saving, as well as your career plans (e.g., would you work more or less hours, or retire).', blank=False)
-
-    """
-    react6 = models.LongStringField(
-        label='How does this scenario affect your career plans in Year 1 and Year 2 (if at all, e.g., would you work more or less hours, or retire)?', blank=False)
-
-    react7 = models.LongStringField(
-        label='How does this scenario affect your career plans in Year 3 and Year 4 (if at all, e.g., would you work more or less hours, or retire)?', blank=False)
-
-    react8 = models.LongStringField(
-        label='How does this scenario affect your career plans for the rest of your life after Year 4 (if at all, e.g., would you work more or less hours, or retire)?', blank=False)
-    """
-    # Reactions_2
-    react_yr1 = models.IntegerField(
-        label='Year 1 from now:', min=C.REACTION_SPEND_MIN, max=C.REACTION_SPEND_MAX, blank=False)
-
-    react_yr2 = models.IntegerField(
-        label='Year 2 from now:', min=C.REACTION_SPEND_MIN, max=C.REACTION_SPEND_MAX, blank=False)
-
-    react_yr3 = models.IntegerField(
-        label='Year 3 from now:', min=C.REACTION_SPEND_MIN, max=C.REACTION_SPEND_MAX, blank=False)
-
-    react_yr4 = models.IntegerField(
-        label='Year 4 from now:', min=C.REACTION_SPEND_MIN, max=C.REACTION_SPEND_MAX, blank=False)
-
-    react_yr5 = models.IntegerField(
-        label='Rest of your life (total):', min=C.REACTION_SPEND_MIN, max=C.REACTION_SPEND_MAX, blank=False)
-
-
-    react_yr1_initial = models.IntegerField(blank=True)
-    react_yr2_initial = models.IntegerField(blank=True)
-    react_yr3_initial = models.IntegerField(blank=True)
-    react_yr4_initial = models.IntegerField(blank=True)
-    react_yr5_initial = models.IntegerField(blank=True)
-
-    # Reactions_2_Follow-up_A2
-    react_followup2_i = models.IntegerField(blank=True, min=1, max=5, label='I keep future payments such as this one in a different budget than the budget that I use to determine my current spending')
-    react_followup2_ii = models.IntegerField(blank=True, min=1, max=5, label='It would be morally wrong to spend the money before I receive it')
-    react_followup2_iii = models.IntegerField(blank=True, min=1, max=5, label='I wouldn\'t know how to increase spending using the money I receive in the future')
-    react_followup2_iv = models.IntegerField(blank=True, min=1, max=5, label='I cannot increase spending before receiving the money because I have little savings and cannot access credit')
-    react_followup2_v = models.IntegerField(blank=True, min=1, max=5, label='Spending money in advance would require me to borrow, which I do not want to do')
-    react_followup2_vi = models.IntegerField(blank=True, min=1, max=5, label='I consider that there is too much uncertainty in the timing and value of the payment')
-    react_followup2_other = models.LongStringField(blank=True, label='Other reason. Please specify:')
-    react_followup2_order = models.LongStringField(blank=True)
-
-    # Reactions_5
-    react20 = models.LongStringField(
-        label='How (if at all) does your emotional response to this scenario affect your spending decisions?', blank=False)
-
-    react21_yr1 = models.IntegerField(
-        label='Years 1 and 2 from now:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    react21_yr2 = models.IntegerField(
-        label='Years 3 and 4 from now:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    react21_yr3 = models.IntegerField(
-        label='Rest of your life:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    
-    react22_yr1 = models.IntegerField(
-        label='Years 1 and 2 from now:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    react22_yr2 = models.IntegerField(
-        label='Years 3 and 4 from now:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    react22_yr3 = models.IntegerField(
-        label='Rest of your life:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    
-    react23_yr1 = models.IntegerField(
-        label='Years 1 and 2 from now:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    react23_yr2 = models.IntegerField(
-        label='Years 3 and 4 from now:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    react23_yr3 = models.IntegerField(
-        label='Rest of your life:', widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'Inappropriate'],
-            [2, 'Neutral'],
-            [3, 'Appropriate'],
-        ])
-    react23_why = models.LongStringField(
-        label='Explain briefly why you/your parents/others would think increasing spending on yourself in the different periods is (not) appropriate.', blank=False
-    )
-
-    # Reactions_6
-    react_uncertainty_timing = models.IntegerField(
-        label='Did you assume there is any uncertainty about the timing of the payment?',
-        widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'No uncertainty'],
-            [2, 'Slightly uncertain'],
-            [3, 'Moderately uncertain'],
-            [4, 'Uncertain'],
-            [5, 'Very uncertain'],
-        ])
-
-    react_uncertainty_amount = models.IntegerField(
-        label='Did you assume there is any uncertainty about the amount of the payment?',
-        widget=widgets.RadioSelect(),
-        choices=[
-            [1, 'No uncertainty'],
-            [2, 'Slightly uncertain'],
-            [3, 'Moderately uncertain'],
-            [4, 'Uncertain'],
-            [5, 'Very uncertain'],
-        ])
-
+    # Plan_Scenario / Plan_Update with the inheritance in the future
+    future_scenario_warning = models.IntegerField(initial=0)  # 1 = pressed Next within 10 seconds, 0 = waited 10 seconds
+    future_change_y1 = models.IntegerField(blank=True, min=None)
+    future_change_y2 = models.IntegerField(blank=True, min=None)
+    future_change_y3 = models.IntegerField(blank=True, min=None)
+    future_change_y4 = models.IntegerField(blank=True, min=None)
+    future_change_y5 = models.IntegerField(blank=True, min=None)
+    future_change_y6 = models.IntegerField(blank=True, min=None)
+    future_change_y7 = models.IntegerField(blank=True, min=None)
+    future_change_y8 = models.IntegerField(blank=True, min=None)
+    future_spend_y1 = models.IntegerField(blank=True)
+    future_spend_y2 = models.IntegerField(blank=True)
+    future_spend_y3 = models.IntegerField(blank=True)
+    future_spend_y4 = models.IntegerField(blank=True)
+    future_spend_y5 = models.IntegerField(blank=True)
+    future_spend_y6 = models.IntegerField(blank=True)
+    future_spend_y7 = models.IntegerField(blank=True)
+    future_spend_y8 = models.IntegerField(blank=True)
+    future_depletion_age = models.IntegerField(blank=True)
+    future_bequest = models.FloatField(blank=True)
 
     # ------------------------------------------------------------------------------------------------------------
     # ----------------------------------------- DEMOGRAPHICS (From SAE0) -----------------------------------------
@@ -601,20 +225,7 @@ class Player(BasePlayer):
         label='Please describe in short any feedback you might have on this survey.', blank=True)
 
 
-_TEXT_MAX_LENGTH = 10000
-
-def _text_length_ok(value, min_length=C.MIN_TEXT_LENGTH):
-    text = (value or '').strip()
-    return min_length <= len(text) <= _TEXT_MAX_LENGTH
-
-
-def _min_text_error():
-    return 'Please provide a response.'
-
-
 KEYLOG_TIMING_STATE_KEY = 'keylog_timing_state'
-COMPREHENSION_ATTEMPTS_KEY = 'comprehension_failed_attempts'
-COMPREHENSION_WRONG_HISTORY_KEY = 'comprehension_wrong_history'
 
 
 def _safe_float(value):
@@ -735,135 +346,294 @@ def _append_keylog_event(player: Player, _storage_field: str, data):
     player.keylog_timing_tuples = _serialize_keylog_timing_tuples(state)
 
 
-def _ensure_comprehension_tracking(player: Player):
-    attempts = player.participant.vars.get(COMPREHENSION_ATTEMPTS_KEY)
-    history = player.participant.vars.get(COMPREHENSION_WRONG_HISTORY_KEY)
-
-    if attempts is None:
-        attempts = player.field_maybe_none('comp_failed_attempts') or 0
-    if history is None:
-        history = player.field_maybe_none('comp_wrong_history') or ''
-
-    try:
-        attempts = int(attempts)
-    except (TypeError, ValueError):
-        attempts = 0
-
-    history = str(history or '').strip()
-
-    player.participant.vars[COMPREHENSION_ATTEMPTS_KEY] = attempts
-    player.participant.vars[COMPREHENSION_WRONG_HISTORY_KEY] = history
-    return attempts, history
+# ------------------------------------------------------------------------------------------------------------
+# ---------------------------------------- LIFECYCLE PLANNING TOOL -------------------------------------------
+# ------------------------------------------------------------------------------------------------------------
+# Parameters of the tool. They can be changed per session in SESSION_CONFIGS (settings.py);
+# these defaults are the assumptions of ToyLifecycleTool.xlsx.
+PLAN_PARAM_DEFAULTS = dict(
+    initial_wealth=120000,
+    salary=30253,
+    pension=17264,
+    interest_rate=0.03,
+    inheritance=50000,
+    current_age=62,
+    retirement_age=67,  # first age at which income = pension
+    inheritance_delay_years=2,  # future scenario: years between the first plan year and the inheritance
+    bequest_age=90,
+)
+PLAN_YEAR_NUMBERS = range(1, C.PLAN_YEARS + 1)
 
 
-def _append_comprehension_failure(player: Player, wrong_ids):
-    attempts, history = _ensure_comprehension_tracking(player)
-    attempts += 1
-    attempt_entry = ','.join(wrong_ids)
-    history = f'{history};{attempt_entry}' if history else attempt_entry
-
-    player.participant.vars[COMPREHENSION_ATTEMPTS_KEY] = attempts
-    player.participant.vars[COMPREHENSION_WRONG_HISTORY_KEY] = history
-    player.comp_failed_attempts = attempts
-    player.comp_wrong_history = history
+def _money(value):
+    value = round(value)
+    sign = '-' if value < 0 else ''
+    return f'{sign}{C.DEFAULT_CURRENCY_SYMBOL}{abs(value):,}'
 
 
-def _get_scenario_reminder_text(player: Player):
-    if player.emotional_attachment == 2:
-        variation = player.participant.vars.get('variation')
-        relation = 'father' if variation == 2 else 'mother'
-        if player.future_present == 1:
-            scenario_text = (
-                f'Suppose that today you learn that your {relation} has been diagnosed with a terminal disease. '
-                f'You inherit {C.DEFAULT_CURRENCY_SYMBOL}50 000 after taxes from your {relation} in 2 years. '
-                'This is a one-time payment you had not expected until today.'
-            )
-        else:
-            scenario_text = (
-                f'Suppose that today you learn that your {relation} passed away last night. '
-                f'You inherit {C.DEFAULT_CURRENCY_SYMBOL}50 000 after taxes from your {relation} today. '
-                'This is a one-time payment you had not expected until today.'
-            )
+def _plan_params(player: Player):
+    config = player.session.config
+    p = {key: config.get(key, default) for key, default in PLAN_PARAM_DEFAULTS.items()}
+    p['first_age'] = p['current_age'] + 1
+    p['last_age'] = p['current_age'] + C.PLAN_YEARS
+    return p
+
+
+def _plan_ages(p):
+    return list(range(p['first_age'], p['last_age'] + 1))
+
+
+def _plan_income(p, age):
+    return p['pension'] if age >= p['retirement_age'] else p['salary']
+
+
+def _plan_inheritance_age(p, timing):
+    if timing == 'present':
+        return p['first_age']
+    if timing == 'future':
+        return p['first_age'] + p['inheritance_delay_years']
+    return None
+
+
+def _plan_scenario_timing(player: Player, scenario_number):
+    timings = ['present', 'future'] if player.round_order == 'present_first' else ['future', 'present']
+    return timings[scenario_number - 1]
+
+
+def _plan_base_spending(player: Player):
+    return [player.field_maybe_none(f'base_spend_y{i}') for i in PLAN_YEAR_NUMBERS]
+
+
+def _plan_project(p, spending, inheritance_age=None):
+    """Projects total savings for a spending plan with one entry per plan year, as in ToyLifecycleTool.xlsx.
+
+    After the last plan year, spending stays at the level of the last plan year. Returns the rows of
+    the plan years, the last age at which total savings are still non-negative (None if they last
+    beyond C.PLAN_HORIZON_AGE) and the total savings at the bequest age.
+    """
+    rows = []
+    total = p['initial_wealth']
+    depletion_age = None
+    bequest = None
+    for age in range(p['first_age'], C.PLAN_HORIZON_AGE + 1):
+        year = age - p['first_age']
+        income = _plan_income(p, age)
+        inheritance = p['inheritance'] if age == inheritance_age else 0
+        saving = income - spending[min(year, C.PLAN_YEARS - 1)] + inheritance
+        # savings carried over from the previous year earn interest
+        total = total + saving if year == 0 else total * (1 + p['interest_rate']) + saving
+        if year < C.PLAN_YEARS:
+            rows.append(dict(age=age, income=income, inheritance=inheritance, saving=saving, total=total))
+        if total < 0 and depletion_age is None:
+            depletion_age = age - 1
+        if age == p['bequest_age']:
+            bequest = total
+    return rows, depletion_age, bequest
+
+
+def _plan_notes(p, depletion_age, bequest):
+    # Keep the wording in sync with notes() in CS1/partials/plan_tool.html
+    if depletion_age is None:
+        used_up = (f'If you keep your spending constant after age {p["last_age"]}, '
+                   f'your overall savings will last beyond age {C.PLAN_HORIZON_AGE}.')
     else:
-        if player.future_present == 1:
-            scenario_text = (
-                'Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years. '
-                f'You receive a {C.DEFAULT_CURRENCY_SYMBOL}50 000 refund in 2 years. '
-                'This is a one-time payment you had not expected until today.'
-            )
-        else:
-            scenario_text = (
-                'Suppose that today you learn that the government has discovered an error in your taxes that concerns multiple years. '
-                f'You receive a {C.DEFAULT_CURRENCY_SYMBOL}50 000 refund today. '
-                'This is a one-time payment you had not expected until today.'
-            )
-
-    if player.uncertainty == 1:
-        uncertainty_text = (
-            'Assume that, while there is always some uncertainty in the exact timing and amount of such payments, '
-            'there is very little uncertainty in this scenario.'
-        )
+        used_up = (f'If you keep your spending constant after age {p["last_age"]}, '
+                   f'your overall savings will be used up by age {depletion_age}.')
+    if bequest is None or bequest < 0:
+        left = f'If you pass on at age {p["bequest_age"]}, you will not leave a bequest.'
     else:
-        uncertainty_text = 'Assume there is no uncertainty in the timing or amount of the payment.'
+        left = f'If you pass on at age {p["bequest_age"]}, you will leave a bequest of {_money(bequest)}.'
+    return [used_up, left]
 
-    scenario_text = scenario_text + ' ' + uncertainty_text
+
+def _plan_error(p, spending, inheritance_age=None, base_spending=None):
+    """Error message if a spending plan is incomplete or not feasible, otherwise None.
+
+    base_spending is passed when the participant entered changes in spending rather than spending.
+    Keep the rules and wording in sync with planError() in CS1/partials/plan_tool.html
+    """
+    if any(amount is None for amount in spending):
+        return 'Please enter a number for every year.'
+
+    for year, age in enumerate(_plan_ages(p)):
+        if spending[year] < 0:
+            if base_spending:
+                return (f'You cannot reduce your spending at age {age} by more than the '
+                        f'{_money(base_spending[year])} you planned to spend in that year.')
+            return f'Your spending at age {age} cannot be negative.'
+
+    rows, _, _ = _plan_project(p, spending, inheritance_age)
+    for row in rows:
+        if row['total'] < 0:
+            return (f'With these entries your total savings would be used up at age {row["age"]}, '
+                    f'i.e. before the end of the {C.PLAN_YEARS} years. '
+                    'You cannot spend more than you have: please reduce your spending in some of the years.')
 
 
-    info_text = ''
-    info_personal_text = ''
-    if player.scenario_info:
-        info_text = (
-            "Many people don't think about future income or cash they'll receive later when deciding how much to spend now. "
-            'This applies both to irregular future income (like the above) and regular future income (like salaries). '
-            'However, your ability to spend today depends not just on your current income, wealth, and debt, '
-            'but also on the money you expect to receive in the future. '
-            'If you anticipate future income, you can choose to spend some of it now by dipping into your savings, '
-            'saving less than usual, or borrowing (for example, using a credit card or a line of credit).'
+def _plan_scenario_text(player: Player, timing):
+    p = _plan_params(player)
+    relation = 'father' if player.mother_father == 2 else 'mother'
+    amount = _money(p['inheritance'])
+    if timing == 'future':
+        delay = p['inheritance_delay_years']
+        years = '1 year' if delay == 1 else f'{delay} years'
+        return (
+            f'Suppose that today you learn that your {relation} has been diagnosed with a terminal disease. '
+            f'You inherit {amount} after taxes from your {relation} in {years}. '
+            'This is a one-time payment you had not expected until today.'
         )
+    return (
+        f'Suppose that today you learn that your {relation} passed away last night. '
+        f'You inherit {amount} after taxes from your {relation} today. '
+        'This is a one-time payment you had not expected until today.'
+    )
 
-        subtype = player.field_maybe_none('info_subtype') or ''
-        borrowing_part = 'borrowing money (e.g., using consumer credit)'
-        ability_parts = []
-        if '5' in subtype:
-            ability_parts.append('your disposable income')
-        if '6' in subtype:
-            ability_parts.append('your net wealth (e.g., savings invested in bank accounts or stocks)')
-        if '7' in subtype:
-            ability_parts.append(borrowing_part)
 
-        if ability_parts:
-            if len(ability_parts) == 1:
-                ability_text = ability_parts[0]
-            elif len(ability_parts) == 2:
-                ability_text = f'{ability_parts[0]} and {ability_parts[1]}'
-            else:
-                ability_text = f'{ability_parts[0]}, {ability_parts[1]} and {ability_parts[2]}'
-            # 'borrowing money ...' alone reads 'by borrowing money ...' in the scenario templates
-            lead_in = 'by ' if ability_parts[0] == borrowing_part else 'by using '
-            info_personal_text = (
-                f'You stated that you would be able to spend more today {lead_in}{ability_text}. '
-                'That means you can increase today\'s spending in anticipation of future income if you like.'
+def _plan_vars(player: Player, timing=None):
+    """Template variables shared by the planning-tool pages."""
+    p = _plan_params(player)
+    ages = _plan_ages(p)
+    inheritance_age = _plan_inheritance_age(p, timing)
+
+    base_spending = _plan_base_spending(player)
+    has_base = None not in base_spending
+    base_rows, base_notes = [], []
+    if has_base:
+        base_rows, depletion_age, bequest = _plan_project(p, base_spending)
+        base_notes = _plan_notes(p, depletion_age, bequest)
+
+    years = []
+    for year, age in enumerate(ages):
+        row = dict(
+            number=year + 1,
+            age=age,
+            income=_money(_plan_income(p, age)),
+            inheritance=_money(p['inheritance'] if age == inheritance_age else 0),
+            is_inheritance_year=age == inheritance_age,
+        )
+        if has_base:
+            row.update(
+                base_spend=_money(base_spending[year]),
+                base_saving=_money(base_rows[year]['saving']),
+                base_saving_negative=base_rows[year]['saving'] < 0,
+                base_total=_money(base_rows[year]['total']),
             )
+        years.append(row)
 
-    return scenario_text, info_text, info_personal_text
+    # smallest range of the vertical axis of the graph, so that it does not rescale with every keystroke
+    if player.layout == 'reframed' and has_base:
+        chart_min_scale = max(base_spending)
+    else:
+        chart_min_scale = p['inheritance'] / 5
+
+    work_years = sum(1 for age in ages if age < p['retirement_age'])
+    return dict(
+        testing=player.session.config['testing'],
+        layout=player.layout,
+        years=years,
+        plan_years=C.PLAN_YEARS,
+        work_years=work_years,
+        retirement_years=C.PLAN_YEARS - work_years,
+        current_age=p['current_age'],
+        first_age=p['first_age'],
+        last_age=p['last_age'],
+        last_work_age=p['retirement_age'] - 1,
+        retirement_age=p['retirement_age'],
+        initial_wealth=_money(p['initial_wealth']),
+        salary=_money(p['salary']),
+        pension=_money(p['pension']),
+        interest_percent=f'{p["interest_rate"] * 100:g}',
+        base_notes=base_notes,
+        chart_min_scale=chart_min_scale,
+    )
 
 
+def _plan_js_vars(player: Player, mode, fields, timing=None):
+    """Data for CS1/partials/plan_tool.html.
 
-def _comprehension_wrong_ids(player: Player, values):
-    wrong_ids = []
+    mode: 'baseline' (spending is entered), 'change' (change in spending is entered) or
+    'level' (updated spending is entered).
+    """
+    p = _plan_params(player)
+    return dict(
+        mode=mode,
+        dynamic=mode == 'baseline' or player.layout != 'natural_2',
+        fields=fields,
+        ages=_plan_ages(p),
+        base_spend=_plan_base_spending(player) if mode != 'baseline' else [],
+        initial_wealth=p['initial_wealth'],
+        salary=p['salary'],
+        pension=p['pension'],
+        retirement_age=p['retirement_age'],
+        interest_rate=p['interest_rate'],
+        inheritance=p['inheritance'],
+        inheritance_age=_plan_inheritance_age(p, timing),
+        bequest_age=p['bequest_age'],
+        horizon_age=C.PLAN_HORIZON_AGE,
+        currency=C.DEFAULT_CURRENCY_SYMBOL,
+    )
 
-    expected_timing = 2 if player.future_present == 1 else 1
-    if values.get('comp_q1_timing') != expected_timing:
-        wrong_ids.append('1')
 
-    if values.get('comp_q2_amount') != 3:
-        wrong_ids.append('2')
+def _plan_scenario_vars(player: Player, scenario_number):
+    timing = _plan_scenario_timing(player, scenario_number)
+    context = _plan_vars(player, timing)
+    context.update(
+        scenario_number=scenario_number,
+        scenario_text=_plan_scenario_text(player, timing),
+        warning_field=f'{timing}_scenario_warning',
+    )
+    return context
 
-    expected_reason = 3 if player.emotional_attachment == 1 else 2
-    if values.get('comp_q3_reason') != expected_reason:
-        wrong_ids.append('3')
 
-    return wrong_ids
+def _plan_update_fields(player: Player, scenario_number):
+    timing = _plan_scenario_timing(player, scenario_number)
+    entered = 'spend' if player.layout == 'reframed' else 'change'
+    return [f'{timing}_{entered}_y{i}' for i in PLAN_YEAR_NUMBERS]
+
+
+def _plan_update_js_vars(player: Player, scenario_number):
+    mode = 'level' if player.layout == 'reframed' else 'change'
+    return _plan_js_vars(
+        player, mode, _plan_update_fields(player, scenario_number),
+        _plan_scenario_timing(player, scenario_number),
+    )
+
+
+def _plan_update_error(player: Player, values, scenario_number):
+    p = _plan_params(player)
+    inheritance_age = _plan_inheritance_age(p, _plan_scenario_timing(player, scenario_number))
+    entries = [values.get(field) for field in _plan_update_fields(player, scenario_number)]
+    if player.layout == 'reframed':
+        return _plan_error(p, entries, inheritance_age)
+
+    base_spending = _plan_base_spending(player)
+    spending = [None if change is None else base + change for base, change in zip(base_spending, entries)]
+    return _plan_error(p, spending, inheritance_age, base_spending)
+
+
+def _plan_update_store(player: Player, scenario_number):
+    """Derives the measure that was not entered (change or spending) and stores the projection."""
+    p = _plan_params(player)
+    timing = _plan_scenario_timing(player, scenario_number)
+    spending = []
+    for i, base in zip(PLAN_YEAR_NUMBERS, _plan_base_spending(player)):
+        if player.layout == 'reframed':
+            spend = getattr(player, f'{timing}_spend_y{i}')
+            setattr(player, f'{timing}_change_y{i}', spend - base)
+        else:
+            spend = base + getattr(player, f'{timing}_change_y{i}')
+            setattr(player, f'{timing}_spend_y{i}', spend)
+        spending.append(spend)
+
+    _plan_store_projection(player, timing, p, spending, _plan_inheritance_age(p, timing))
+
+
+def _plan_store_projection(player: Player, prefix, p, spending, inheritance_age=None):
+    _, depletion_age, bequest = _plan_project(p, spending, inheritance_age)
+    if depletion_age is not None:
+        setattr(player, f'{prefix}_depletion_age', depletion_age)
+    if bequest is not None:
+        setattr(player, f'{prefix}_bequest', round(bequest, 2))
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -871,24 +641,18 @@ def _comprehension_wrong_ids(player: Player, values):
 # ------------------------------------------------------------------------------------------------------------
 def creating_session(subsession: Subsession):
     if subsession.round_number == 1:
-        # FU = Future, PR = Present; LAR = Large (parent) NO = None (tax); C = Certainty, U = Uncertainty; I = Information
-        groups = [
-            'FU_LAR_C', 'FU_NO_C', 'PR_LAR_C', 'PR_NO_C',
-            'FU_LAR_U', 'FU_NO_U', 'PR_LAR_U', 'PR_NO_U',
-            'FU_LAR_C_I', 'FU_NO_C_I', 'PR_LAR_C_I', 'PR_NO_C_I',
-            'FU_LAR_U_I', 'FU_NO_U_I', 'PR_LAR_U_I', 'PR_NO_U_I',
+        # Between-subject cells: input layout x order of the two scenarios x framing of the own-inheritance follow-up.
+        # The layout changes fastest, so that small sessions are balanced on it first.
+        cells = [
+            (layout, round_order, frame)
+            for frame in [1, 2]
+            for round_order in C.ROUND_ORDERS
+            for layout in C.LAYOUTS
         ]
 
         for i, player in enumerate(subsession.get_players()):
-            assigned_group = groups[i % len(groups)]
-            player.participant.vars['assigned_group'] = assigned_group
-            player.assigned_group = assigned_group
-
-            parts = assigned_group.split('_')
-            player.future_present = 1 if parts[0] == 'FU' else 2
-            player.emotional_attachment = 2 if parts[1] == 'LAR' else 1
-            player.uncertainty = 2 if parts[2] == 'C' else 1
-            player.scenario_info = parts[-1] == 'I'
+            player.layout, player.round_order, player.inh_followup_frame = cells[i % len(cells)]
+            player.mother_father = random.randint(1, 2)
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -1066,844 +830,124 @@ class AttentionCheckResult(Page):
         return player.round_number == 1
 
 # ------------------------------------------------------------------------------------------------------------
-# --------------------------------------- INTRODUCTORY SURVEY --------------------------------------------
+# ---------------------------------------- LIFECYCLE PLANNING TOOL -------------------------------------------
 # ------------------------------------------------------------------------------------------------------------
-class Survey_1(Page):
+class Plan_Intro(Page):
+    @staticmethod
+    def vars_for_template(player: Player):
+        return _plan_vars(player)
+
+
+class Plan_Baseline(Page):
+    form_model = 'player'
+    form_fields = [
+        'base_spend_y1', 'base_spend_y2', 'base_spend_y3', 'base_spend_y4',
+        'base_spend_y5', 'base_spend_y6', 'base_spend_y7', 'base_spend_y8']
+
+    @staticmethod
+    def vars_for_template(player: Player):
+        return _plan_vars(player)
+
+    @staticmethod
+    def js_vars(player: Player):
+        return _plan_js_vars(player, 'baseline', Plan_Baseline.form_fields)
+
+    @staticmethod
+    def error_message(player: Player, values):
+        return _plan_error(_plan_params(player), [values.get(field) for field in Plan_Baseline.form_fields])
+
+    @staticmethod
+    def live_method(player: Player, data):
+        _append_keylog_event(player, 'plan_keylog', data)
+
+    @staticmethod
+    def before_next_page(player: Player, timeout_happened):
+        _plan_store_projection(player, 'base', _plan_params(player), _plan_base_spending(player))
+
+
+# The two scenarios (inheritance today / in the future) are shown in the order given by player.round_order.
+class Plan_Scenario_1(Page):
+    template_name = 'CS1/Plan_Scenario.html'
     form_model = 'player'
 
     @staticmethod
     def get_form_fields(player: Player):
-        if 'spend_save' not in player.participant.vars:
-            player.participant.vars['spend_save'] = random.randint(1, 2)  # spend = 1; save = 2
-        if player.participant.vars['spend_save'] == 1:
-            return ['survey1_spend']
-        elif player.participant.vars['spend_save'] == 2:
-            return ['survey1_save']
+        return [f'{_plan_scenario_timing(player, 1)}_scenario_warning']
 
     @staticmethod
     def vars_for_template(player: Player):
-        value = player.field_maybe_none('survey1_spend') or 0  # Defaults to 0 if None
-        remaining_percentage = 100 - value
+        return _plan_scenario_vars(player, 1)
 
-        return {
-            'form_value': value,
-            'remaining_percentage': remaining_percentage,
-            'spend_save': player.participant.vars['spend_save'],
-            'testing': player.session.config["testing"]}
 
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.spend_save = player.participant.vars['spend_save']
-
-
-class Survey_2(Page):
-    form_model = 'player'
-    form_fields = [
-        'survey2_DisposableIncome',
-        'survey2_NetWealth',
-        'survey2_FutureIncome',
-        'survey2_RetirementIncome',
-        'survey2_IrregularPayments',
-        'survey2_InterestRates',
-        'survey2_Inflation',
-        'survey2_CreditAccess',
-        'survey2_Caution',
-        'survey2_Impatience',
-        'survey2_TextBox']
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'spend_save' not in player.participant.vars:
-            player.participant.vars['spend_save'] = random.randint(1, 2)  # spend = 1; save = 2
-
-        # Randomize the order of the fields, excluding textbox
-        static_fields = ['survey2_TextBox']
-        if 'randomized_fields' not in player.participant.vars:
-            randomized_fields = random.sample(
-                [field for field in Survey_2.form_fields if field not in static_fields],
-                len(Survey_2.form_fields) - len(static_fields))
-            player.participant.vars['randomized_fields'] = randomized_fields
-        else:
-            randomized_fields = player.participant.vars['randomized_fields']
-
-        survey2_labels = {
-            'survey2_DisposableIncome': "Your disposable income now",
-            'survey2_NetWealth': "Your current net wealth (your wealth minus any debt, e.g., credit card debt or mortgages)",
-            'survey2_FutureIncome': "Your expected regular future income until retirement (e.g., from your job)",
-            'survey2_RetirementIncome': "Your expected regular income after retirement (e.g., from pensions and your retirement savings)",
-            'survey2_IrregularPayments': "Expected gifts, inheritances, and irregular payments from others",
-            'survey2_InterestRates': "Interest rates or the return on savings (including stocks and changes in housing prices)",
-            'survey2_Inflation': "Inflation",
-            'survey2_CreditAccess': "Your ability to access credit (if needed)",
-            'survey2_Caution': "Caution (preference to avoid risk)",
-            'survey2_Impatience': "Impatience (preference to spend more now rather than later)",
-        }
-        likert_choices = [
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important'],
-        ]
-
-        survey2_rows = []
-        for field_name in randomized_fields:
-            survey2_rows.append(dict(
-                name=field_name,
-                label=survey2_labels.get(field_name, field_name),
-                choices=likert_choices,
-                value=player.field_maybe_none(field_name),
-            ))
-
-        return {'spend_save': player.participant.vars['spend_save'],
-                'randomized_fields': randomized_fields,
-                'survey2_rows': survey2_rows,
-                'testing': player.session.config["testing"]}
-
-    @staticmethod
-    def error_message(player: Player, values):
-        for field in ['survey2_DisposableIncome', 'survey2_NetWealth', 'survey2_FutureIncome',
-                      'survey2_RetirementIncome', 'survey2_IrregularPayments', 'survey2_InterestRates',
-                      'survey2_Inflation', 'survey2_CreditAccess', 'survey2_Caution', 'survey2_Impatience']:
-            val = values.get(field)
-            if val is not None:
-                setattr(player, field, val)
-        errors = {}
-        for field in ['survey2_DisposableIncome', 'survey2_NetWealth', 'survey2_FutureIncome',
-                      'survey2_RetirementIncome', 'survey2_IrregularPayments', 'survey2_InterestRates',
-                      'survey2_Inflation', 'survey2_CreditAccess', 'survey2_Caution', 'survey2_Impatience']:
-            if values.get(field) is None:
-                errors[field] = 'This field is required.'
-        return errors if errors else None
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.survey2_fieldorder = ', '.join(player.participant.vars['randomized_fields'])
-
-    
-
-
-class Survey_3(Page):
-    form_model = 'player'
-    form_fields = [
-        "Demographics_Household_Income",
-        "Demographics_LiquidWealth",
-        "Demographics_IlliquidWealth",
-        "Demographics_DebtWealth",
-        "Demographics_LiquidityConstraints_1",
-        "Demographics_LiquidityConstraints_2",
-        "Demographics_LiquidityConstraints_3",
-    ]
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        return {'testing': player.session.config["testing"]}
-    
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        q5 = player.Demographics_LiquidityConstraints_1
-        q6 = player.Demographics_LiquidityConstraints_2
-        q7 = player.Demographics_LiquidityConstraints_3
-
-        agreed = []
-        if q5 in [4, 5]:
-            agreed.append('5')
-        if q6 in [4, 5]:
-            agreed.append('6')
-        if q7 in [4, 5]:
-            agreed.append('7')
-
-        player.info_subtype = ''.join(agreed) if agreed else '0'
-
-# ------------------------------------------------------------------------------------------------------------
-# --------------------------------------------- SCENARIO --------------------------------------------
-# ------------------------------------------------------------------------------------------------------------
-
-def get_timeline_vars(player: Player):
-    paymentgr = (player.participant.vars.get('assigned_group') or 'FU_NO').split("_")
-    if paymentgr[0] == "FU":
-        payment_position = 2
-    else:
-        payment_position = 0
-    if paymentgr[1] == "NO":
-        payment_label = "Tax Refund Payment"
-    else:
-        payment_label = "Inheritance Payment"
-    
-    return payment_position,payment_label
-
-
-class FU_LAR_C(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_LAR_C'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config["testing"],
-            'variation': player.participant.vars['variation'],
-            'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-
-class FU_LAR_U(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_LAR_U'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config["testing"],
-            'variation': player.participant.vars['variation'],
-            'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-
-class FU_NO_C(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_NO_C'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-
-class FU_NO_U(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_NO_U'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-
-class PR_LAR_C(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_LAR_C'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-
-        return {'testing': player.session.config["testing"],
-                'variation': player.participant.vars['variation'],
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-
-class PR_LAR_U(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_LAR_U'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-
-        return {'testing': player.session.config["testing"],
-                'variation': player.participant.vars['variation'],
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-
-class PR_NO_C(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_NO_C'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-
-class PR_NO_U(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_NO_U'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-
-# WITH INFORMATION PARAGRAPH AT THE START
-class FU_LAR_C_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_LAR_C_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config["testing"],
-            'variation': player.participant.vars['variation'],
-            'info_subtype': player.info_subtype,
-            'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-
-class FU_LAR_U_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_LAR_U_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config["testing"],
-            'variation': player.participant.vars['variation'],
-            'info_subtype': player.info_subtype,
-            'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-
-class FU_NO_C_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_NO_C_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'info_subtype': player.info_subtype,
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-
-class FU_NO_U_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'FU_NO_U_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'info_subtype': player.info_subtype,
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-
-class PR_LAR_C_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_LAR_C_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'variation': player.participant.vars['variation'],
-                'info_subtype': player.info_subtype,
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-class PR_LAR_U_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_LAR_U_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = random.randint(1, 2)
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'variation': player.participant.vars['variation'],
-                'info_subtype': player.info_subtype,
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        player.mother_father = player.participant.vars['variation']
-
-
-class PR_NO_C_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_NO_C_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'scenario_warning': player.scenario_warning,
-                'info_subtype': player.info_subtype,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25
-                }
-
-
-class PR_NO_U_I(Page):
-    form_model = 'player'
-    form_fields = ['scenario_warning']
-
-    def is_displayed(player: Player):
-        return player.participant.vars.get('assigned_group') == 'PR_NO_U_I'
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'info_subtype': player.info_subtype,
-                'scenario_warning': player.scenario_warning,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25
-                }
-
-
-class ComprehensionTest(Page):
+class Plan_Update_1(Page):
+    template_name = 'CS1/Plan_Update.html'
     form_model = 'player'
 
     @staticmethod
     def get_form_fields(player: Player):
-        fields = ['comp_q1_timing', 'comp_q2_amount', 'comp_q3_reason']
-        return fields
+        return _plan_update_fields(player, 1)
 
     @staticmethod
     def vars_for_template(player: Player):
-        failed_attempts, wrong_history = _ensure_comprehension_tracking(player)
-        payment_position, payment_label = get_timeline_vars(player)
-        scenario_text, info_text, info_personal_text = _get_scenario_reminder_text(player)
+        return _plan_scenario_vars(player, 1)
 
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = 'Not Set'
-
-        return {
-            'testing': player.session.config["testing"],
-            'show_retry_reminder': failed_attempts > 0,
-            'failed_attempts': failed_attempts,
-            'wrong_history': wrong_history,
-            'group': player.participant.vars['assigned_group'],
-            'variation': player.participant.vars['variation'],
-            'info_subtype': player.info_subtype,
-            'scenario_text': scenario_text,
-            'scenario_info_text': info_text,
-            'scenario_info_personal_text': info_personal_text,
-            'expected_q1': 2 if player.future_present == 1 else 1,
-            'expected_q3': 3 if player.emotional_attachment == 1 else 2,
-            'payment_position': payment_position,
-            'payment_label': payment_label,
-            'arrow_left_percent': payment_position * 25,
-        }
+    @staticmethod
+    def js_vars(player: Player):
+        return _plan_update_js_vars(player, 1)
 
     @staticmethod
     def error_message(player: Player, values):
-        errors = {}
-        wrong_msg = 'Please review the scenario and update this response.'
+        return _plan_update_error(player, values, 1)
 
-        expected_timing = 2 if player.future_present == 1 else 1
-        if values.get('comp_q1_timing') != expected_timing:
-            errors['comp_q1_timing'] = wrong_msg
-
-        if values.get('comp_q2_amount') != 3:
-            errors['comp_q2_amount'] = wrong_msg
-
-        expected_reason = 3 if player.emotional_attachment == 1 else 2
-        if values.get('comp_q3_reason') != expected_reason:
-            errors['comp_q3_reason'] = wrong_msg
-
-        if errors:
-            wrong_ids = _comprehension_wrong_ids(player, values)
-            if wrong_ids:
-                _append_comprehension_failure(player, wrong_ids)
-            return errors
+    @staticmethod
+    def live_method(player: Player, data):
+        _append_keylog_event(player, 'plan_keylog', data)
 
     @staticmethod
     def before_next_page(player: Player, timeout_happened):
-        failed_attempts, wrong_history = _ensure_comprehension_tracking(player)
-        player.comp_failed_attempts = failed_attempts
-        player.comp_wrong_history = wrong_history
+        _plan_update_store(player, 1)
 
 
-# ------------------------------------------------------------------------------------------------------------
-# --------------------------------------------- REACTIONS --------------------------------------------
-# ------------------------------------------------------------------------------------------------------------
-
-class Reactions_1(Page):
+class Plan_Scenario_2(Page):
+    template_name = 'CS1/Plan_Scenario.html'
     form_model = 'player'
-    form_fields = ['react3', 'react4', 'react5']
+
+    @staticmethod
+    def get_form_fields(player: Player):
+        return [f'{_plan_scenario_timing(player, 2)}_scenario_warning']
 
     @staticmethod
     def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = 'Not Set'
-        
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'group': player.participant.vars['assigned_group'],
-                'variation': player.participant.vars['variation'],
-                'info_subtype': player.info_subtype,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def error_message(player: Player, values):
-        errors = {}
-        for field in ['react3', 'react4', 'react5']:
-            if not _text_length_ok(values.get(field)):
-                errors[field] = _min_text_error()
-        return errors if errors else None
-
-    @staticmethod
-    def live_method(player: Player, data):
-        _append_keylog_event(player, 'reactions2_keylog', data)
+        return _plan_scenario_vars(player, 2)
 
 
-class Reactions_2(Page):
+class Plan_Update_2(Page):
+    template_name = 'CS1/Plan_Update.html'
     form_model = 'player'
-    form_fields = ['react_yr1', 'react_yr2', 'react_yr3', 'react_yr4', 'react_yr5']
+
+    @staticmethod
+    def get_form_fields(player: Player):
+        return _plan_update_fields(player, 2)
 
     @staticmethod
     def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = 'Not Set'
-        
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'group': player.participant.vars['assigned_group'],
-                'variation': player.participant.vars['variation'],
-                'info_subtype': player.info_subtype,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
+        return _plan_scenario_vars(player, 2)
+
+    @staticmethod
+    def js_vars(player: Player):
+        return _plan_update_js_vars(player, 2)
 
     @staticmethod
     def error_message(player: Player, values):
-        total_fields = ['react_yr1', 'react_yr2', 'react_yr3', 'react_yr4', 'react_yr5']
-        errors = {}
-        total = 0
-        for field in total_fields:
-            value = values.get(field)
-            if value is None:
-                total = None
-                break
-            if value < C.REACTION_SPEND_MIN or value > C.REACTION_SPEND_MAX:
-                errors[field] = (
-                    f'Please enter a value between {C.REACTION_SPEND_MIN} and '
-                    f'{C.REACTION_SPEND_MAX}.'
-                )
-            total += value
-
-        if not errors and total is not None and total > C.REACTION_SPEND_TOTAL_MAX:
-            total_msg = (
-                f'Your total change in spending sums up to more than {C.DEFAULT_CURRENCY_SYMBOL}{C.REACTION_SPEND_TOTAL_MAX}, '
-                'i.e., much more than the payment you receive. '
-                f'Please change your responses to stay below a total change of {C.DEFAULT_CURRENCY_SYMBOL}{C.REACTION_SPEND_TOTAL_MAX} in spending.'
-            )
-            for field in total_fields:
-                errors[field] = total_msg
-
-        return errors if errors else None
+        return _plan_update_error(player, values, 2)
 
     @staticmethod
     def live_method(player: Player, data):
-        if data.get('type') == 'initial_values':
-            player.react_yr1_initial = data.get('yr1')
-            player.react_yr2_initial = data.get('yr2')
-            player.react_yr3_initial = data.get('yr3')
-            player.react_yr4_initial = data.get('yr4')
-            player.react_yr5_initial = data.get('yr5')
-        else:
-            _append_keylog_event(player, 'reactions3_keylog', data)
+        _append_keylog_event(player, 'plan_keylog', data)
 
     @staticmethod
     def before_next_page(player: Player, timeout_happened):
-        for field in ['react_yr1', 'react_yr2', 'react_yr3', 'react_yr4', 'react_yr5']:
-            initial_field = field + '_initial'
-            if player.field_maybe_none(initial_field) is None:
-                setattr(player, initial_field, player.field_maybe_none(field))
-
-def _reactions2_backloaded(player: Player):
-    """True when the spending change is concentrated after the payment is
-    received (Years 3-4) rather than before it (Years 1-2). This is the
-    condition that routes future-payment participants to Followup A2.
-
-    Magnitudes are compared so the check still works when reactions are
-    negative (planned spending reductions): what matters is where the bulk
-    of the *change* sits, not its sign. When there is no Year 3-4 change,
-    it is never treated as back-loaded (so an early-only change, including
-    all-zero, gets no follow-up).
-    """
-    before = (
-        (player.field_maybe_none('react_yr1') or 0) +
-        (player.field_maybe_none('react_yr2') or 0)
-    )
-    after = (
-        (player.field_maybe_none('react_yr3') or 0) +
-        (player.field_maybe_none('react_yr4') or 0)
-    )
-    return player.future_present == 1 and abs(before) < 0.5 * abs(after)
-
-
-class Reactions_2_Followup_A2(Page):
-    form_model = 'player'
-    form_fields = [
-        'react_followup2_i',
-        'react_followup2_ii',
-        'react_followup2_iii',
-        'react_followup2_iv',
-        'react_followup2_v',
-        'react_followup2_vi',
-        'react_followup2_other'
-    ]
-
-    @staticmethod
-    def is_displayed(player: Player):
-        return _reactions2_backloaded(player)
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        reasons = ['i', 'ii', 'iii', 'iv', 'v', 'vi']
-        payment_position, payment_label = get_timeline_vars(player)
-
-        existing_order = player.field_maybe_none('react_followup2_order')
-        if existing_order:
-            reasons = existing_order.split(',')
-        else:
-            random.shuffle(reasons)
-            player.react_followup2_order = ','.join(reasons)
-
-        likert_choices = [
-            [1, 'Not important'],
-            [2, 'Slightly Important'],
-            [3, 'Moderately Important'],
-            [4, 'Important'],
-            [5, 'Very Important'],
-        ]
-
-        reason_labels = {
-            'i': 'I keep future payments such as this one in a different budget than the budget that I use to determine my current spending',
-            'ii': 'It would be morally wrong to spend the money before I receive it',
-            'iii': "I wouldn't know how to increase spending using the money I receive in the future",
-            'iv': 'I cannot increase spending before receiving the money because I have little savings and cannot access credit',
-            'v': 'Spending money in advance would require me to borrow, which I do not want to do',
-            'vi': 'I consider that there is too much uncertainty in the timing and value of the payment',
-        }
-
-        reason_rows = []
-        for r in reasons:
-            field_name = f'react_followup2_{r}'
-            reason_rows.append(dict(
-                name=field_name,
-                label=reason_labels[r],
-                choices=likert_choices,
-                value=player.field_maybe_none(field_name),
-            ))
-
-        return {
-            'testing': player.session.config['testing'],
-            'group': player.assigned_group,
-            'variation': player.participant.vars.get('variation'),
-            'info_subtype': player.info_subtype,
-            'react_yr1': player.react_yr1,
-            'react_yr2': player.react_yr2,
-            'react_yr3': player.react_yr3,
-            'react_yr4': player.react_yr4,
-            'react_yr5': player.react_yr5,
-            'reason_rows': reason_rows,
-            'payment_position': payment_position,
-            'payment_label': payment_label,
-            'arrow_left_percent': payment_position * 25,
-        }
-    
-    @staticmethod
-    def error_message(player: Player, values):
-        # Save submitted values so they persist on re-render
-        for field in ['react_followup2_i', 'react_followup2_ii', 'react_followup2_iii',
-                    'react_followup2_iv', 'react_followup2_v', 'react_followup2_vi']:
-            val = values.get(field)
-            if val is not None:
-                setattr(player, field, val)
-
-        errors = {}
-        for field in ['react_followup2_i', 'react_followup2_ii', 'react_followup2_iii',
-                    'react_followup2_iv', 'react_followup2_v', 'react_followup2_vi']:
-            if values.get(field) is None:
-                errors[field] = 'This field is required.'
-        return errors if errors else None
-    
-
-class Reactions_5(Page):
-    form_model = 'player'
-    form_fields = [
-        'react20',
-        'react21_yr1', 'react21_yr2', 'react21_yr3',
-        'react22_yr1', 'react22_yr2', 'react22_yr3',
-        'react23_yr1', 'react23_yr2', 'react23_yr3', 
-        'react23_why']
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = 'Not Set'
-        payment_position, payment_label = get_timeline_vars(player)
-        return {'testing': player.session.config["testing"],
-                'group': player.participant.vars['assigned_group'],
-                'variation': player.participant.vars['variation'],
-                'info_subtype': player.info_subtype,
-                'payment_position':payment_position,
-                'payment_label': payment_label,
-                'arrow_left_percent': payment_position*25}
-
-    @staticmethod
-    def error_message(player, values):
-        errors = {}
-        min_msg = 'Please provide an explanation when this is required.'
-
-        # For react23 group:
-        if (values.get("react23_yr1") == 1 or
-                values.get("react23_yr2") == 1 or
-                values.get("react23_yr3") == 1):
-            if not _text_length_ok(values.get("react23_why")):
-                errors["react23_why"] = min_msg
-
-        return errors if errors else None
-
-    @staticmethod
-    def live_method(player: Player, data):
-        _append_keylog_event(player, 'reactions6_keylog', data)
-
-
-class Reactions_6(Page):
-    form_model = 'player'
-    form_fields = ['react_uncertainty_timing', 'react_uncertainty_amount']
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        if 'variation' not in player.participant.vars:
-            player.participant.vars['variation'] = 'Not Set'
-
-        payment_position, payment_label = get_timeline_vars(player)
-        return {
-            'testing': player.session.config["testing"],
-            'group': player.participant.vars['assigned_group'],
-            'variation': player.participant.vars['variation'],
-            'info_subtype': player.info_subtype,
-            'payment_position': payment_position,
-            'payment_label': payment_label,
-            'arrow_left_percent': payment_position * 25,
-        }
+        _plan_update_store(player, 2)
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -1933,6 +977,11 @@ def _qualifies_for_inheritance_followup(player: Player):
         father_inh != 42
     )
     return mother_qualifies or father_qualifies
+
+
+def _inh_frame_vars(player: Player):
+    saving_frame = player.inh_followup_frame == 2
+    return dict(saving_frame=saving_frame, frame_word='saving' if saving_frame else 'spending')
 
 class Demographics_1(Page):
     form_model = 'player'
@@ -1973,6 +1022,7 @@ class Inh_Followup_A(Page):
             'testing': player.session.config['testing'],
             'order': order,
             'inh_followup_effect': player.field_maybe_none('inh_followup_effect'),
+            **_inh_frame_vars(player),
         }
 
     @staticmethod
@@ -1996,6 +1046,7 @@ class Inh_Followup_B(Page):
     def vars_for_template(player: Player):
         return {'testing': player.session.config['testing'],
                 'inh_followup_thought': player.field_maybe_none('inh_followup_thought'),
+                **_inh_frame_vars(player),
         }
 
     @staticmethod
@@ -2018,7 +1069,7 @@ class Inh_Followup_C(Page):
 
     @staticmethod
     def vars_for_template(player: Player):
-        return {'testing': player.session.config['testing']}
+        return {'testing': player.session.config['testing'], **_inh_frame_vars(player)}
 
     @staticmethod
     def error_message(player: Player, values):
@@ -2088,6 +1139,7 @@ class Inh_Followup_D(Page):
         return {
             'testing': player.session.config['testing'],
             'reason_rows': reason_rows,
+            **_inh_frame_vars(player),
         }
 
     @staticmethod
@@ -2127,18 +1179,10 @@ page_sequence = [
 
     AttentionCheck3_AI, AttentionCheck4_AI, AttentionCheckResult,
 
-    Survey_1, Survey_2, Survey_3,
+    Plan_Intro, Plan_Baseline,
 
-    FU_LAR_C, FU_NO_C, PR_LAR_C, PR_NO_C,
-    FU_LAR_U, FU_NO_U, PR_LAR_U, PR_NO_U,
-
-    FU_LAR_C_I, FU_NO_C_I, PR_LAR_C_I, PR_NO_C_I,
-    FU_LAR_U_I, FU_NO_U_I, PR_LAR_U_I, PR_NO_U_I,
-
-    ComprehensionTest,
-
-    Reactions_1, Reactions_2, Reactions_2_Followup_A2,
-    Reactions_5, Reactions_6,
+    Plan_Scenario_1, Plan_Update_1,
+    Plan_Scenario_2, Plan_Update_2,
 
     AttentionCheck1_AI, AttentionCheck2_AI, BotScreening,
 

@@ -1,0 +1,11 @@
+<thead>
+    <tr class="plan-phase">
+        <th class="plan-label"></th>
+        {{ if work_years }}<th colspan="{{ work_years }}">Work Life (income = salary)</th>{{ endif }}
+        {{ if retirement_years }}<th colspan="{{ retirement_years }}">Retirement (income = pension)</th>{{ endif }}
+    </tr>
+    <tr class="plan-ages">
+        <th class="plan-label">Age</th>
+        {{ for year in years }}<th>{{ year.age }}</th>{{ endfor }}
+    </tr>
+</thead>

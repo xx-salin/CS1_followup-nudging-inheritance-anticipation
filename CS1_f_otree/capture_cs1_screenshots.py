@@ -13,14 +13,14 @@ HOW TO USE
 
 PERSONAS
 --------
-  A  — spender      : positive spend all years → Reactions_5/6,
-                       full Inh_Followup chain (A→D)
-  B  — zero-pre     : 0 in yr1/2, positive yr3+ (future only) →
-                       Reactions_2_Followup_A2, Inh_Followup chain
-  C  — all-zero     : all zeros, blank parents → skips
-                       all Followups, Inh_Followup chain
+  A  — spends it      : entries of ToyLifecycleTool.xlsx, expects an own
+                         inheritance → full Inh_Followup chain (A→D)
+  B  — no reaction    : spending unchanged in every year, expects an own
+                         inheritance that affects them → Inh_Followup_A only
+  C  — spends less    : lower spending in some years, blank parents →
+                         skips the Inh_Followup chain
 
-Needs 16 participant slots (one per treatment group).
+Needs 12 participant slots (one per treatment cell).
 
 NOTES
 -----
@@ -59,7 +59,7 @@ ACTIVE_PERSONA = "C"   # "A", "B", or "C"
 # ---------------------------------------------------------------------------
 BASE_URL   = "http://127.0.0.1:8000/"
 APP_NAME   = "CS1"
-NUM_TREATMENTS = 16          # always 16 for CS1
+NUM_TREATMENTS = 12          # always 12 for CS1
 MAX_STEPS  = 500
 OUT_DIR    = "screenshots"
 HEADED     = True            # False = headless
@@ -73,19 +73,33 @@ CAPTURE_ONCE_LABELS = {
 }
 
 # ---------------------------------------------------------------------------
-# Treatment groups (must match creating_session order in __init__.py)
+# Treatment cells (must match creating_session order in __init__.py)
+# layout x order of the scenarios x framing of the own-inheritance follow-up
 # ---------------------------------------------------------------------------
 GROUPS = [
-    "FU_LAR_C",   "FU_NO_C",   "PR_LAR_C",   "PR_NO_C",
-    "FU_LAR_U",   "FU_NO_U",   "PR_LAR_U",   "PR_NO_U",
-    "FU_LAR_C_I", "FU_NO_C_I", "PR_LAR_C_I", "PR_NO_C_I",
-    "FU_LAR_U_I", "FU_NO_U_I", "PR_LAR_U_I", "PR_NO_U_I",
+    f"{layout}_{round_order}_{frame}"
+    for frame in ["spendframe", "saveframe"]
+    for round_order in ["present_first", "future_first"]
+    for layout in ["natural_2", "natural_1", "reframed"]
 ]
 
-def _group_meta(group_str):
-    """Return (is_future, is_large_attachment, is_info)."""
-    parts = group_str.split("_")
-    return parts[0] == "FU", parts[1] == "LAR", parts[-1] == "I"
+PLAN_YEARS = range(1, 9)
+BASE_SPENDING = [27000, 27000, 27000, 27000, 25000, 25000, 25000, 25000]
+
+
+def _plan_values(prefix, amounts):
+    return {f"{prefix}_y{year}": str(amount) for year, amount in zip(PLAN_YEARS, amounts)}
+
+
+def _reaction_values(present_changes, future_changes):
+    """Entries for the Plan_Update pages: the natural layouts show the *_change_*
+    inputs, the reframed layout the *_spend_* inputs."""
+    values = {}
+    for timing, changes in [("present", present_changes), ("future", future_changes)]:
+        values.update(_plan_values(f"{timing}_change", changes))
+        values.update(_plan_values(
+            f"{timing}_spend", [base + change for base, change in zip(BASE_SPENDING, changes)]))
+    return values
 
 
 # ---------------------------------------------------------------------------
@@ -96,33 +110,17 @@ TEXT_VALUES = {
     "browser_first":         "Chrome",
     "can":                   "red",
     "words":                 "test",
-    "react3":                "I would plan to spend more on leisure and travel given the windfall.",
-    "react4":                "I would continue increased spending on home improvements in years 3 and 4.",
-    "react5":                "I would maintain slightly elevated spending for the rest of my life.",
-    "react_followup2_other": "",
-    "react20":               "The scenario made me feel more financially secure, which positively affected my spending decisions.",
-    "react23_why":           "I believe it is appropriate to increase spending in all periods as the payment is confirmed.",
     "inh_followup_why":      "I have considered this but prefer to keep my spending plans unchanged until I receive the inheritance.",
     "inh_followup_reason_other": "",
     "OpenFeedback":          "The survey was clear and well-structured.",
-    "survey2_TextBox":       "",
     "AI_Test2":              "[]",
-    "failures_per_q":        "test",
-    "clicks":                "[]",
 }
 
 NUMBER_VALUES_BASE = {
-    "survey1_spend": "50",
-    "survey1_save":  "50",
     "Demographics_Age":            "35",
     "Demographics_AgeExpectation": "80",
-    # Reactions_2_Followup_A2 likert
-    "react_followup2_i":  "3",
-    "react_followup2_ii": "2",
-    "react_followup2_iii":"2",
-    "react_followup2_iv": "2",
-    "react_followup2_v":  "3",
-    "react_followup2_vi": "2",
+    # Plan_Baseline
+    **_plan_values("base_spend", BASE_SPENDING),
     # Inh_Followup_D likert
     "inh_followup_reason_i":   "3",
     "inh_followup_reason_ii":  "2",
@@ -137,38 +135,6 @@ NUMBER_VALUES_BASE = {
 RADIO_VALUES_BASE = {
     "lines":    "1",
     "cafewall": "2",
-    # ComprehensionTest — overridden dynamically per treatment
-    "comp_q1_timing": "2",
-    "comp_q2_amount": "3",
-    "comp_q3_reason": "2",
-    # Survey_2 Likert rows
-    "survey2_DisposableIncome": "3",
-    "survey2_NetWealth":        "3",
-    "survey2_FutureIncome":     "3",
-    "survey2_RetirementIncome": "3",
-    "survey2_IrregularPayments":"3",
-    "survey2_InterestRates":    "3",
-    "survey2_Inflation":        "3",
-    "survey2_CreditAccess":     "3",
-    "survey2_Caution":          "3",
-    "survey2_Impatience":       "3",
-    # Survey_3
-    "Demographics_Household_Income":     "3",
-    "Demographics_LiquidWealth":         "3",
-    "Demographics_IlliquidWealth":       "3",
-    "Demographics_DebtWealth":           "3",
-    "Demographics_LiquidityConstraints_1": "4",  # Agree → triggers info personalisation
-    "Demographics_LiquidityConstraints_2": "4",
-    "Demographics_LiquidityConstraints_3": "4",
-    # Scenario
-    "scenario_warning": "0",
-    # Reactions_5
-    "react21_yr1": "3", "react21_yr2": "3", "react21_yr3": "3",
-    "react22_yr1": "3", "react22_yr2": "3", "react22_yr3": "3",
-    "react23_yr1": "3", "react23_yr2": "3", "react23_yr3": "3",
-    # Reactions_6
-    "react_uncertainty_timing": "2",
-    "react_uncertainty_amount": "2",
     # Demographics_1
     "Demographics_Sex":      "1",
     "Demographics_Education":"3",
@@ -184,52 +150,44 @@ RADIO_VALUES_BASE = {
 # Persona-specific overrides
 # ---------------------------------------------------------------------------
 
-# Persona A — spender: spend totalling £30 000 (< £50 000 payment)
-# → triggers "spending less than payment" warning modal on Reactions_2
-# → positive in all years → Reactions_5/6 + Inh_Followup chain
+# Persona A — spends the inheritance: the entries of ToyLifecycleTool.xlsx
+# → qualifies for the Inh_Followup chain, answers "no effect" → A→D
 PERSONA_A = {
     "number": {
         "Demographics_Mother":           "65",
         "Demographics_Father":           "68",
         "Demographics_MotherInheritance":"50000",
         "Demographics_FatherInheritance":"50000",
-        "react_yr1": "5000",
-        "react_yr2": "5000",
-        "react_yr3": "5000",
-        "react_yr4": "5000",
-        "react_yr5": "10000",   # total = £30 000 → sub-£50k modal fires
+        **_reaction_values(
+            present_changes=[30000, 10000, 5000, 5000, 0, 0, 0, 0],
+            future_changes=[2500, 2500, 25000, 10000, 5000, 5000, 0, 0]),
     },
+    "radio": {},
     "blank": [],
 }
 
-# Persona B — zero pre-receipt: yr1/2 = 0, yr3+ positive, total = £30 000
-# → triggers sub-£50k modal on Reactions_2 (same modal variant as A)
-# → zero pre-receipt → Reactions_2_Followup_A2
-# → qualifies for Inh_Followup chain
+# Persona B — no reaction: spending unchanged in every year
+# → qualifies for the Inh_Followup chain, answers that the inheritance affects them → A only
 PERSONA_B = {
     "number": {
         "Demographics_Mother":           "65",
         "Demographics_Father":           "68",
         "Demographics_MotherInheritance":"50000",
         "Demographics_FatherInheritance":"50000",
-        "react_yr1": "0",
-        "react_yr2": "0",
-        "react_yr3": "10000",
-        "react_yr4": "10000",
-        "react_yr5": "10000",   # total = £30 000 → sub-£50k modal fires
+        **_reaction_values(present_changes=[0] * 8, future_changes=[0] * 8),
     },
+    "radio": {"inh_followup_effect": "1"},
     "blank": [],
 }
 
-# Persona C — all zeros, blank parents → skips all conditional branches
+# Persona C — spends less in some years, blank parents → skips the Inh_Followup chain
 PERSONA_C = {
     "number": {
-        "react_yr1": "0",
-        "react_yr2": "0",
-        "react_yr3": "0",
-        "react_yr4": "0",
-        "react_yr5": "0",
+        **_reaction_values(
+            present_changes=[-1000, 0, 0, 0, 0, 0, 0, -1000],
+            future_changes=[-2000, -2000, 0, 0, 0, 0, 0, 0]),
     },
+    "radio": {},
     "blank": [
         "Demographics_Mother",
         "Demographics_Father",
@@ -241,9 +199,9 @@ PERSONA_C = {
 PERSONAS = {"A": PERSONA_A, "B": PERSONA_B, "C": PERSONA_C}
 
 PERSONA_DESCRIPTIONS = {
-    "A": "spender £30k (sub-£50k modal) — positive all years, Inh_Followup qualified",
-    "B": "zero-pre £30k (sub-£50k modal) — zero yr1/2, positive yr3+, Inh_Followup qualified",
-    "C": "all-zero (zero-spend modal) — zeros everywhere, no inheritance, skips branches",
+    "A": "spends it — entries of ToyLifecycleTool.xlsx, full Inh_Followup chain",
+    "B": "no reaction — spending unchanged, own inheritance affects them (Inh_Followup_A only)",
+    "C": "spends less — lower spending in some years, no own inheritance, skips Inh_Followup",
 }
 
 
@@ -254,6 +212,11 @@ PERSONA_DESCRIPTIONS = {
 def _build_number_values(persona):
     merged = dict(NUMBER_VALUES_BASE)
     merged.update(persona["number"])
+    return merged
+
+def _build_radio_values(persona):
+    merged = dict(RADIO_VALUES_BASE)
+    merged.update(persona["radio"])
     return merged
 
 def _build_blank_set(persona):
@@ -423,12 +386,6 @@ def safe_page_label(url):
 
 def resolve_page_label(page):
     label = safe_page_label(page.url)
-    if page.locator("input[type='radio'][name^='survey2_']").count() > 0:
-        return "Survey_2"
-    if page.locator("input[type='radio'][name='Demographics_LiquidityConstraints_1']").count() > 0:
-        return "Survey_3"
-    if page.locator("input[type='radio'][name='comp_q1_timing']").count() > 0:
-        return "ComprehensionTest"
     if page.locator("input[name='Demographics_Age']").count() > 0:
         return "Demographics_1"
     return label
@@ -729,7 +686,6 @@ def run_participant(
             continue
 
         # --- Normal pages: standard oTree Next button ---
-        # Also handles Reactions_2's #warningModal which fires on form submit.
         btn = next_button_locator(page)
         if btn is None:
             break
@@ -741,25 +697,8 @@ def run_participant(
             with page.expect_navigation(wait_until="domcontentloaded", timeout=5000):
                 btn.click()
         except PlaywrightTimeoutError:
-            # Navigation didn't happen — check if warningModal appeared (Reactions_2)
-            modal = page.locator("#warningModal")
-            if page.url == url_before and modal.is_visible():
-                # Screenshot the page with the modal open
-                modal_file = f"{len(seen_labels):03d}_{plabel}_warning_modal.png"
-                modal_target = out_dir / folder_label / modal_file
-                modal_target.parent.mkdir(parents=True, exist_ok=True)
-                capture_page(page, modal_target)
-
-                # Click "Proceed anyway" → sets allowSubmit=true, clicks next button
-                url_before2 = page.url
-                try:
-                    with page.expect_navigation(wait_until="domcontentloaded", timeout=15000):
-                        page.locator("button[onclick='proceedAnyway()']").click()
-                except PlaywrightTimeoutError:
-                    if page.url == url_before2:
-                        force_advance_form(page)
-            elif page.url == url_before:
-                # Some other reason navigation didn't happen — retry
+            if page.url == url_before:
+                # Navigation didn't happen — retry
                 try:
                     btn.click()
                     page.wait_for_url(lambda u: u != url_before, timeout=5000)
@@ -804,7 +743,7 @@ def main():
     num_treatments = min(args.treatments, len(GROUPS))
 
     out_root = Path(args.out)
-    # Output goes to: screenshots/CS1_personaA/treatment_01_FU_LAR_C/ etc.
+    # Output goes to: screenshots/CS1_personaA/treatment_01_natural_2_present_first_spendframe/ etc.
     out_dir = out_root / f"{args.app}_persona{persona_key}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -836,13 +775,7 @@ def main():
                 break
 
             group_str  = GROUPS[t_idx]
-            group_meta = _group_meta(group_str)
-            is_future, is_large, _ = group_meta
-
-            # Build per-treatment radio values (comprehension test answers depend on group)
-            radio_values = dict(RADIO_VALUES_BASE)
-            radio_values["comp_q1_timing"] = "2" if is_future else "1"
-            radio_values["comp_q3_reason"] = "2" if is_large  else "3"
+            radio_values = _build_radio_values(persona)
 
             folder_label = f"treatment_{t_idx + 1:02d}_{group_str}"
             url = participant_links[t_idx]

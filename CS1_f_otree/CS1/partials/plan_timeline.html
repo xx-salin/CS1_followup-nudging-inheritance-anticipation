@@ -1,0 +1,11 @@
+<div class="plan-timeline">
+    {{ for year in years }}
+        <div class="plan-timeline-year">
+            <div class="plan-timeline-age">Age {{ year.age }}</div>
+            {{ if year.is_inheritance_year }}
+                <span class="plan-timeline-arrow">↑</span>
+                Inheritance Payment
+            {{ endif }}
+        </div>
+    {{ endfor }}
+</div>

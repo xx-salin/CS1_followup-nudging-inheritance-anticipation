@@ -2,18 +2,18 @@
 {% load otree static %}
 
 {% block title %}
-    Concluding Survey 1 — Follow-Up 2
+    Concluding survey — Follow-Up 2
 {% endblock %}
 
 {% block content %}
     <div style="font-size: 16px;">
-        <strong>You indicate that your expected parental inheritance does not affect your current spending. </strong>
+        <strong>You indicate that your expected parental inheritance does not affect your current {{ frame_word }}. </strong>
         <br>
         Do you agree with the following statement?
     </div>
 
     <div style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9;">
-        "Before today, I have never even thought about whether the inheritance I expect should affect my current spending."
+        "Before today, I have never even thought about whether the inheritance I expect should affect my current {{ frame_word }}."
     </div>
 
     <div style="margin-top: 20px;">
@@ -28,7 +28,7 @@
             <label>
                 <input type="radio" name="inh_followup_thought" value="2"
                     {% if inh_followup_thought == 2 %}checked{% endif %}>
-                No, I have considered this, but decided not to change my spending.
+                No, I have considered this, but decided not to change my {{ frame_word }}.
             </label>
         </div>
         {% formfield_errors 'inh_followup_thought' %}

@@ -1,0 +1,178 @@
+<style>
+    /* room for the 8 year columns of the planning tool */
+    .otree-body {
+        max-width: 1140px;
+    }
+
+    .plan-box {
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 1rem 15px;
+        font-size: 16px;
+    }
+
+    .plan-box-scenario {
+        background-color: #d0e8ff;
+    }
+
+    .plan-table-wrapper {
+        margin-top: 14px;
+        overflow-x: auto;
+    }
+
+    .plan-table {
+        width: 100%;
+        min-width: 860px;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 0.95rem;
+    }
+
+    .plan-table th,
+    .plan-table td {
+        border: 1px solid #d0d4d9;
+        padding: 7px 8px;
+        text-align: right;
+        vertical-align: middle;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .plan-table .plan-label {
+        width: 25%;
+        text-align: left;
+        font-weight: 600;
+        line-height: 1.3;
+        background: #f8f9fa;
+    }
+
+    .plan-table .plan-phase th {
+        text-align: center;
+        background: #e9ecef;
+    }
+
+    .plan-table .plan-phase .plan-label {
+        background: #ffffff;
+        border-top-color: transparent;
+        border-left-color: transparent;
+    }
+
+    .plan-table .plan-ages th {
+        background: #f1f3f5;
+    }
+
+    .plan-table .plan-total td {
+        font-weight: 600;
+    }
+
+    /* the row the participant fills in (green boxes in ToyLifecycleTool.xlsx) */
+    .plan-table .plan-input-row td,
+    .plan-table .plan-input-row .plan-label {
+        background: #e2f0d9;
+    }
+
+    .plan-money {
+        position: relative;
+    }
+
+    .plan-money-symbol {
+        position: absolute;
+        left: 7px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: #333;
+    }
+
+    .plan-money input.form-control {
+        width: 100%;
+        padding: 4px 6px 4px 18px;
+        text-align: right;
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+
+    .plan-money input.form-control::-webkit-outer-spin-button,
+    .plan-money input.form-control::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .plan-negative {
+        color: #b00020;
+    }
+
+    .plan-inheritance-year {
+        font-weight: 700;
+    }
+
+    .plan-notes {
+        margin: 14px 0 0 0;
+        padding: 12px 15px 12px 32px;
+        border: 1px solid #d0d4d9;
+        border-radius: 5px;
+        background: #fffbe6;
+    }
+
+    .plan-notes li + li {
+        margin-top: 8px;
+    }
+
+    .plan-overview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: center;
+        margin-top: 14px;
+    }
+
+    .plan-overview .plan-chart {
+        flex: 3 1 480px;
+        min-width: 0;
+    }
+
+    .plan-overview .plan-notes {
+        flex: 2 1 260px;
+        margin-top: 0;
+    }
+
+    .plan-chart svg {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .plan-error {
+        display: none;
+        margin-top: 14px;
+        color: #a94442;
+        font-weight: 600;
+    }
+
+    .plan-timeline {
+        display: flex;
+        margin: 22px 0 6px 0;
+        text-align: center;
+    }
+
+    .plan-timeline-year {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .plan-timeline-age {
+        border-top: 2px solid black;
+        border-left: 2px solid black;
+        padding-top: 8px;
+    }
+
+    .plan-timeline-year:last-child .plan-timeline-age {
+        border-right: 2px solid black;
+    }
+
+    .plan-timeline-arrow {
+        display: block;
+        margin-top: 4px;
+        font-size: 24px;
+        line-height: 1;
+    }
+</style>

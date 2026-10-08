@@ -1,0 +1,221 @@
+<script>
+// Planning tool: live projection, graph and checks for the pages with a row of yearly inputs.
+// The data comes from _plan_js_vars() in __init__.py.
+(function () {
+    const cfg = js_vars;
+    const years = cfg.ages.length;
+    const form = document.getElementById('form');
+    const inputs = cfg.fields.map(function (name) { return document.getElementById('id_' + name); });
+    const errorBox = document.getElementById('plan-error');
+    let submitAttempted = false;
+
+    function money(value) {
+        const rounded = Math.round(value);
+        return (rounded < 0 ? '-' : '') + cfg.currency + Math.abs(rounded).toLocaleString('en-GB');
+    }
+
+    // Number typed for a plan year; null while the field is empty or not a number
+    function entry(year) {
+        const raw = inputs[year].value.trim();
+        if (raw === '') return null;
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    // Spending implied by the entry for a plan year. On the update pages, the preview uses the
+    // initial plan for years that are still empty.
+    function spending(year, preview) {
+        const value = entry(year);
+        if (cfg.mode === 'baseline') return value;
+        if (value === null) return preview ? cfg.base_spend[year] : null;
+        return cfg.mode === 'change' ? cfg.base_spend[year] + value : value;
+    }
+
+    // Same projection as _plan_project() in __init__.py
+    function project(spend) {
+        const rows = [];
+        let total = cfg.initial_wealth;
+        let depletionAge = null;
+        let bequest = null;
+        for (let age = cfg.ages[0]; age <= cfg.horizon_age; age++) {
+            const year = age - cfg.ages[0];
+            const income = age >= cfg.retirement_age ? cfg.pension : cfg.salary;
+            const inheritance = age === cfg.inheritance_age ? cfg.inheritance : 0;
+            const saving = income - spend[Math.min(year, years - 1)] + inheritance;
+            total = year === 0 ? total + saving : total * (1 + cfg.interest_rate) + saving;
+            if (year < years) rows.push({age: age, saving: saving, total: total});
+            if (total < 0 && depletionAge === null) depletionAge = age - 1;
+            if (age === cfg.bequest_age) bequest = total;
+        }
+        return {rows: rows, depletionAge: depletionAge, bequest: bequest};
+    }
+
+    // Same wording as _plan_notes() in __init__.py
+    function notes(result) {
+        const lastAge = cfg.ages[years - 1];
+        const usedUp = result.depletionAge === null
+            ? `If you keep your spending constant after age ${lastAge}, your overall savings will last beyond age ${cfg.horizon_age}.`
+            : `If you keep your spending constant after age ${lastAge}, your overall savings will be used up by age ${result.depletionAge}.`;
+        const left = result.bequest === null || result.bequest < 0
+            ? `If you pass on at age ${cfg.bequest_age}, you will not leave a bequest.`
+            : `If you pass on at age ${cfg.bequest_age}, you will leave a bequest of ${money(result.bequest)}.`;
+        return [usedUp, left];
+    }
+
+    // Same rules and wording as _plan_error() in __init__.py
+    function planError() {
+        const entries = inputs.map(function (_, year) { return entry(year); });
+        if (entries.some(function (value) { return value === null; })) {
+            return 'Please enter a number for every year.';
+        }
+        if (entries.some(function (value) { return !Number.isInteger(value); })) {
+            return 'Please enter whole numbers only.';
+        }
+
+        const spend = inputs.map(function (_, year) { return spending(year, false); });
+        for (let year = 0; year < years; year++) {
+            if (spend[year] < 0) {
+                if (cfg.mode === 'change') {
+                    return `You cannot reduce your spending at age ${cfg.ages[year]} by more than the ` +
+                        `${money(cfg.base_spend[year])} you planned to spend in that year.`;
+                }
+                return `Your spending at age ${cfg.ages[year]} cannot be negative.`;
+            }
+        }
+
+        const rows = project(spend).rows;
+        for (let year = 0; year < years; year++) {
+            if (rows[year].total < 0) {
+                return `With these entries your total savings would be used up at age ${rows[year].age}, ` +
+                    `i.e. before the end of the ${years} years. ` +
+                    'You cannot spend more than you have: please reduce your spending in some of the years.';
+            }
+        }
+        return null;
+    }
+
+    function setMoneyCell(id, value) {
+        const cell = document.getElementById(id);
+        if (!cell) return;
+        cell.textContent = value === null ? '–' : money(value);
+        cell.classList.toggle('plan-negative', value !== null && Math.round(value) < 0);
+    }
+
+    function niceStep(roughStep) {
+        const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+        const fraction = roughStep / magnitude;
+        return (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10) * magnitude;
+    }
+
+    // Bar chart of the yearly entries (spending or change in spending) by age
+    function drawChart(values) {
+        const chart = document.getElementById('plan-chart');
+        if (!chart) return;
+
+        const width = 600, height = 320;
+        const left = 78, right = 14, top = 40, bottom = 52;
+        const plotWidth = width - left - right, plotHeight = height - top - bottom;
+
+        let low = Math.min(0, Math.min.apply(null, values));
+        let high = Math.max(Number(chart.dataset.minScale) || 0, Math.max.apply(null, values));
+        if (high <= low) high = low + 1;
+        const step = niceStep((high - low) / 4);
+        low = Math.floor(low / step) * step;
+        high = Math.ceil(high / step) * step;
+        const y = function (value) { return top + plotHeight * (high - value) / (high - low); };
+
+        let svg = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${chart.dataset.title}">`;
+        svg += `<text x="${width / 2}" y="18" text-anchor="middle" font-size="15" font-weight="600">${chart.dataset.title}</text>`;
+        for (let tick = low; tick <= high + step / 2; tick += step) {
+            svg += `<line x1="${left}" x2="${width - right}" y1="${y(tick)}" y2="${y(tick)}" stroke="${tick === 0 ? '#333' : '#dee2e6'}"/>`;
+            svg += `<text x="${left - 8}" y="${y(tick) + 4}" text-anchor="end" font-size="12">${money(tick)}</text>`;
+        }
+        const slot = plotWidth / years;
+        values.forEach(function (value, year) {
+            const barTop = Math.min(y(value), y(0));
+            const barHeight = Math.abs(y(value) - y(0));
+            const x = left + slot * year + slot * 0.2;
+            svg += `<rect x="${x}" y="${barTop}" width="${slot * 0.6}" height="${barHeight}" fill="${value < 0 ? '#c0504d' : '#4472c4'}"/>`;
+            svg += `<text x="${left + slot * (year + 0.5)}" y="${height - bottom + 18}" text-anchor="middle" font-size="12">${cfg.ages[year]}</text>`;
+        });
+        svg += `<text x="${left + plotWidth / 2}" y="${height - 8}" text-anchor="middle" font-size="13">Your Age</text>`;
+        svg += `<text transform="translate(14 ${top + plotHeight / 2}) rotate(-90)" text-anchor="middle" font-size="13">${chart.dataset.axis}</text>`;
+        svg += '</svg>';
+        chart.innerHTML = svg;
+    }
+
+    function render() {
+        if (cfg.dynamic) {
+            const preview = inputs.map(function (_, year) { return spending(year, true); });
+            let filled = preview.findIndex(function (value) { return value === null; });
+            if (filled === -1) filled = years;
+            const result = project(preview.map(function (value) { return value === null ? 0 : value; }));
+
+            for (let year = 0; year < years; year++) {
+                setMoneyCell('plan-saving-' + (year + 1), year < filled ? result.rows[year].saving : null);
+                setMoneyCell('plan-total-' + (year + 1), year < filled ? result.rows[year].total : null);
+            }
+
+            const notesList = document.getElementById('plan-notes');
+            if (notesList) {
+                const lines = filled === years
+                    ? notes(result)
+                    : ['Enter your spending for every year to see how long your savings will last.'];
+                notesList.innerHTML = '';
+                lines.forEach(function (line) {
+                    const item = document.createElement('li');
+                    item.textContent = line;
+                    notesList.appendChild(item);
+                });
+            }
+
+            drawChart(inputs.map(function (_, year) {
+                return cfg.mode === 'change' ? (entry(year) || 0) : preview[year];
+            }));
+        }
+
+        // Before the first attempt to continue, only complete but infeasible plans are flagged
+        const complete = inputs.every(function (_, year) { return entry(year) !== null; });
+        const message = submitAttempted || complete ? planError() : null;
+        errorBox.textContent = message || '';
+        errorBox.style.display = message ? 'block' : 'none';
+        return message;
+    }
+
+    inputs.forEach(function (input, year) {
+        input.setAttribute('step', '1');
+        input.setAttribute('aria-label', 'Age ' + cfg.ages[year]);
+        input.addEventListener('input', function (event) {
+            // keystroke timing, as on the other pages with typed answers
+            try {
+                liveSend({
+                    field: cfg.fields[year],
+                    t: performance.now(),
+                    inputType: event.inputType || null,
+                    data: event.data || null,
+                    len: input.value.length,
+                });
+            } catch (error) {}
+            render();
+        });
+    });
+
+    // Registered before oTree's own submit handler, so a blocked submit does not disable the Next button
+    form.addEventListener('submit', function (event) {
+        submitAttempted = true;
+        if (render()) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            errorBox.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+    });
+
+    // Used by the "Skip for testing" buttons
+    window.planFill = function (values) {
+        inputs.forEach(function (input, year) { input.value = values[year]; });
+        render();
+    };
+
+    render();
+})();
+</script>

@@ -1,0 +1,44 @@
+{{ extends "global/Page.html" }}
+
+{{ block title }}
+    Your Financial Plan
+{{ endblock }}
+
+{{ block styles }}
+    {{ include "CS1/partials/plan_tool_styles.html" }}
+{{ endblock }}
+
+{{ block content }}
+    <div style="font-size: 16px;">
+        In this study, we ask you to put yourself in the following situation and to make a financial plan.
+    </div>
+
+    <div class="plan-box bg-light" style="margin-top: 15px;">
+        <strong>Imagine you are {{ current_age }} years old and planning for your retirement.</strong>
+        <ul style="margin-top: 10px; margin-bottom: 0;">
+            <li>You have savings of {{ initial_wealth }}.</li>
+            {{ if work_years }}
+                <li>Until age {{ last_work_age }}, you work and earn a salary of {{ salary }} per year after taxes.</li>
+            {{ endif }}
+            <li>From age {{ retirement_age }} onwards, you are retired and receive a pension of {{ pension }} per year after taxes.</li>
+            <li>Your savings earn {{ interest_percent }}% interest per year.</li>
+            <li>There is no inflation: prices stay the same in every year, so you do not need to worry about rising prices when you plan.</li>
+        </ul>
+    </div>
+
+    <div style="margin-top: 20px;">
+        On the next page, you will plan how much you spend in each of the next {{ plan_years }} years,
+        i.e., from age {{ first_age }} to age {{ last_age }}.
+        A planning tool shows you for each of these years your income, your spending, how much you save in that year
+        (or take out of your savings, if you spend more than your income), and your total savings.
+    </div>
+
+    <div style="margin-top: 10px;">
+        Note that 'spending' refers to expenses for goods (like cars or clothes) and services (like vacations or education).
+        This study is all about your personal views — there are no right or wrong plans.
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+{{ endblock }}

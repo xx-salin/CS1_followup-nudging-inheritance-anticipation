@@ -2,7 +2,7 @@
 {% load otree static %}
 
 {% block title %}
-    Concluding Survey 1 — Follow-Up
+    Concluding survey — Follow-Up
 {% endblock %}
 
 {% block content %}
@@ -17,7 +17,11 @@
                     <label>
                         <input type="radio" name="inh_followup_effect" value="1"
                             {% if inh_followup_effect == 1 %}checked{% endif %}>
-                        I currently consume more than I would without an expected inheritance
+                        {% if saving_frame %}
+                            I currently save less than I would without an expected inheritance
+                        {% else %}
+                            I currently consume more than I would without an expected inheritance
+                        {% endif %}
                     </label>
                 </div>
             {% endif %}
@@ -26,7 +30,7 @@
                     <label>
                         <input type="radio" name="inh_followup_effect" value="2"
                             {% if inh_followup_effect == 2 %}checked{% endif %}>
-                        The future inheritance has no effect on my current spending
+                        The future inheritance has no effect on my current {{ frame_word }}
                     </label>
                 </div>
             {% endif %}
