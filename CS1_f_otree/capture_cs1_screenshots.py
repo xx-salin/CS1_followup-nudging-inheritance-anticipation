@@ -35,6 +35,12 @@ Scenario popup: the scenario pages use a custom #nextBtn (not oTree's
     3. Screenshots the page with the alert showing
     4. Clicks #quick-alert-ok to dismiss it
     5. Clicks #nextBtn again → form.submit() → navigates away
+
+Plan warning popup: on the Plan_Update pages, pressing Next with a plan that
+  hardly reacts to the scenario shows the #plan-warning popup instead of
+  submitting (personas B and C, see PLAN_WARNING_DEFAULTS in __init__.py).
+  The script screenshots the popup and clicks #plan-warning-proceed
+  ("Proceed anyway"), which submits the plan.
 """
 
 import argparse
@@ -683,6 +689,33 @@ def run_participant(
             except PlaywrightTimeoutError:
                 if page.url == url_before:
                     force_advance_form(page)
+            continue
+
+        # --- Plan_Update pages: #plan-warning popup ---
+        # Pressing Next with a plan that hardly reacts to the scenario shows the
+        # popup instead of submitting. We need to:
+        #   1. Click Next                    (popup appears, no navigation)
+        #   2. Screenshot the popup
+        #   3. Click #plan-warning-proceed   ("Proceed anyway" → submits)
+        if page.locator("#plan-warning").count() > 0:
+            fill_fields(page, number_values, blank_fields, radio_values)
+
+            url_before = page.url
+            page.locator("button.otree-btn-next").click()
+            page.wait_for_timeout(400)  # let the popup render, or the page submit
+
+            if page.url == url_before and page.locator("#plan-warning").is_visible():
+                warning_file = f"{len(seen_labels):03d}_{plabel}_plan_warning.png"
+                warning_target = out_dir / folder_label / warning_file
+                warning_target.parent.mkdir(parents=True, exist_ok=True)
+                # the popup covers the window, not the page
+                page.screenshot(path=str(warning_target), full_page=False)
+                page.locator("#plan-warning-proceed").click()
+
+            try:
+                page.wait_for_url(lambda u: u != url_before, timeout=15000)
+            except PlaywrightTimeoutError:
+                force_advance_form(page)
             continue
 
         # --- Normal pages: standard oTree Next button ---

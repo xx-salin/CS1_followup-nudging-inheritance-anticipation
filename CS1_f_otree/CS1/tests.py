@@ -57,6 +57,20 @@ class PlayerBot(Bot):
         expect(self.stored(f'{prefix}_depletion_age'), depletion_age)
         expect(abs(self.stored(f'{prefix}_bequest') - bequest) < 0.011, True)
 
+    def report_warnings(self, page, changes):
+        """What the page sends when it warns about a plan that hardly reacts to the scenario
+        (showWarning() in partials/plan_tool_scripts.html); the bots do not run that script."""
+        unchanged = [0] * C.PLAN_YEARS
+        for kind, reported in [
+            ('low_total', unchanged[:-1]),  # a year is missing: counted, but not kept as the first attempt
+            ('low_total', unchanged),
+            ('low_total', changes),  # the first attempt is not overwritten
+            ('low_before', changes),  # only exists if the inheritance is paid in the future
+            ('other', changes),  # no such warning
+        ]:
+            page.live_method(self.player, dict(type='plan_warning', kind=kind, changes=reported))
+        return unchanged
+
     def play_round(self):
         expect(self.player.layout, 'in', C.LAYOUTS)
         expect(self.player.round_order, 'in', C.ROUND_ORDERS)
@@ -120,11 +134,22 @@ class PlayerBot(Bot):
                 infeasible = [-base[0] - 1] + entries[1:]  # negative spending
             yield SubmissionMustFail(update_page, dict(zip(fields[:-1], entries)))  # a year is missing
             yield SubmissionMustFail(update_page, dict(zip(fields, infeasible)))
+
+            # spends_less: is warned about a plan without any change, revises it and proceeds
+            warned = self.case == 'spends_less'
+            first_attempt = self.report_warnings(update_page, changes) if warned else changes
+            for t in [1.0, 1.5]:  # keystrokes are still timed
+                update_page.live_method(self.player, dict(field=fields[0], t=t))
             yield update_page, dict(zip(fields, entries))
 
             for year, (spend, change) in enumerate(zip(spending, changes), start=1):
                 expect(self.stored(f'{timing}_spend_y{year}'), spend)
                 expect(self.stored(f'{timing}_change_y{year}'), change)
+                expect(self.stored(f'{timing}_change_y{year}_initial'), first_attempt[year - 1])
+            expect(self.stored(f'{timing}_warned_low_total'), 3 if warned else 0)
+            if timing == 'future':
+                expect(self.stored('future_warned_low_before'), 1 if warned else 0)
+            expect(fields[0], 'in', self.stored('keylog_timing_tuples'))
             self.check_projection(timing, p, spending, inheritance_age)
             if from_sheet:
                 result = (self.stored(f'{timing}_depletion_age'), self.stored(f'{timing}_bequest'))

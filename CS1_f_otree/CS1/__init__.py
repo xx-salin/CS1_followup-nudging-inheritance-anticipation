@@ -16,6 +16,8 @@ their plan in one of three layouts (between-subject, named after the sheets of t
     natural_2: enter the change in spending per year; the initial plan is shown as a static reminder
     natural_1: enter the change in spending per year; the tool and a graph update dynamically
     reframed:  enter the updated spending per year; the tool and a graph update dynamically
+In every layout all years have to be filled in actively, and a plan that hardly reacts to the scenario
+leads to a warning that the participant can follow or ignore (see PLAN_WARNING_DEFAULTS).
 The concluding survey covers demographics and the participant's own expected parental inheritance.
 """
 
@@ -129,6 +131,19 @@ class Player(BasePlayer):
     present_spend_y8 = models.IntegerField(blank=True)
     present_depletion_age = models.IntegerField(blank=True)
     present_bequest = models.FloatField(blank=True)
+    # Warning on Plan_Update for a plan that hardly reacts to the scenario (see PLAN_WARNING_DEFAULTS).
+    # warned_low_total = number of times the warning was shown (0 = never)
+    # change_y*_initial = change in spending when Next was pressed and the first warning was shown
+    # (the same as the final change if no warning was shown)
+    present_warned_low_total = models.IntegerField(initial=0)
+    present_change_y1_initial = models.IntegerField(blank=True)
+    present_change_y2_initial = models.IntegerField(blank=True)
+    present_change_y3_initial = models.IntegerField(blank=True)
+    present_change_y4_initial = models.IntegerField(blank=True)
+    present_change_y5_initial = models.IntegerField(blank=True)
+    present_change_y6_initial = models.IntegerField(blank=True)
+    present_change_y7_initial = models.IntegerField(blank=True)
+    present_change_y8_initial = models.IntegerField(blank=True)
 
     # Plan_Scenario / Plan_Update with the inheritance in the future
     future_scenario_warning = models.IntegerField(initial=0)  # 1 = pressed Next within 10 seconds, 0 = waited 10 seconds
@@ -150,6 +165,17 @@ class Player(BasePlayer):
     future_spend_y8 = models.IntegerField(blank=True)
     future_depletion_age = models.IntegerField(blank=True)
     future_bequest = models.FloatField(blank=True)
+    # warned_low_before = number of times the warning about spending before the inheritance was shown
+    future_warned_low_total = models.IntegerField(initial=0)
+    future_warned_low_before = models.IntegerField(initial=0)
+    future_change_y1_initial = models.IntegerField(blank=True)
+    future_change_y2_initial = models.IntegerField(blank=True)
+    future_change_y3_initial = models.IntegerField(blank=True)
+    future_change_y4_initial = models.IntegerField(blank=True)
+    future_change_y5_initial = models.IntegerField(blank=True)
+    future_change_y6_initial = models.IntegerField(blank=True)
+    future_change_y7_initial = models.IntegerField(blank=True)
+    future_change_y8_initial = models.IntegerField(blank=True)
 
     # ------------------------------------------------------------------------------------------------------------
     # ----------------------------------------- DEMOGRAPHICS (From SAE0) -----------------------------------------
@@ -364,9 +390,20 @@ PLAN_PARAM_DEFAULTS = dict(
     inheritance_delay_years=2,  # future scenario: years between the first plan year and the inheritance
     bequest_age=90,
 )
+# Warnings on the Plan_Update pages for a plan that hardly reacts to the scenario, to avoid a lazy
+# "same plan as before". The participant can go back or proceed anyway. Each warning is shown up to
+# a share of the inheritance; None switches it off. They can be changed per session as well.
+PLAN_WARNING_DEFAULTS = dict(
+    # both scenarios: the changes in spending of all plan years, up or down, add up to at most this share
+    warning_low_total_share=0.05,
+    # future scenario: spending in the years before the inheritance rises by at most this share in total
+    warning_low_before_share=0.05,
+)
+PLAN_WARNING_KINDS = dict(present=['low_total'], future=['low_total', 'low_before'])
 PLAN_YEAR_NUMBERS = range(1, C.PLAN_YEARS + 1)
 PLAN_TOLERANCE = 1e-6  # savings this close to zero count as zero (rounding in the formulas)
 PLAN_RATE_TOLERANCE = 1e-9  # interest and growth rates this close count as equal
+PLAN_MAX_AMOUNT = 10 ** 9  # larger amounts reported by a page are not stored
 
 
 def _money(value):
@@ -376,7 +413,8 @@ def _money(value):
 
 
 def _plan_params_from_config(config):
-    p = {key: config.get(key, default) for key, default in PLAN_PARAM_DEFAULTS.items()}
+    defaults = {**PLAN_PARAM_DEFAULTS, **PLAN_WARNING_DEFAULTS}
+    p = {key: config.get(key, default) for key, default in defaults.items()}
     p['first_age'] = p['current_age'] + 1
     p['last_age'] = p['current_age'] + C.PLAN_YEARS
     return p
@@ -398,6 +436,9 @@ def _plan_check_params(p):
         problems.append(f'inheritance_delay_years must be between 1 and {C.PLAN_YEARS - 1}')
     if p['bequest_age'] < p['first_age']:
         problems.append(f'bequest_age must be at least {p["first_age"]}')
+    for name in PLAN_WARNING_DEFAULTS:
+        if p[name] is not None and p[name] < 0:
+            problems.append(f'{name} must be at least 0, or None for no warning')
     if problems:
         raise ValueError('Planning tool parameters in the session config: ' + '; '.join(problems) + '.')
 
@@ -421,6 +462,12 @@ def _plan_inheritance_age(p, timing):
 def _plan_scenario_timing(player: Player, scenario_number):
     timings = ['present', 'future'] if player.round_order == 'present_first' else ['future', 'present']
     return timings[scenario_number - 1]
+
+
+def _plan_warning_amount(p, share_name):
+    """Amount up to which a warning is shown on the Plan_Update pages; None if it is switched off."""
+    share = p[share_name]
+    return None if share is None else round(share * p['inheritance'])
 
 
 def _plan_base_spending(player: Player):
@@ -657,6 +704,9 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
         inheritance=p['inheritance'],
         inheritance_age=_plan_inheritance_age(p, timing),
         bequest_age=p['bequest_age'],
+        # amounts up to which planWarning() warns about a plan that hardly reacts to the scenario
+        warning_low_total=_plan_warning_amount(p, 'warning_low_total_share'),
+        warning_low_before=_plan_warning_amount(p, 'warning_low_before_share'),
         tolerance=PLAN_TOLERANCE,
         rate_tolerance=PLAN_RATE_TOLERANCE,
         currency=C.DEFAULT_CURRENCY_SYMBOL,
@@ -700,6 +750,33 @@ def _plan_update_error(player: Player, values, scenario_number):
     return _plan_error(p, spending, inheritance_age, base_spending)
 
 
+def _plan_update_live(player: Player, data, scenario_number):
+    """Messages of the Plan_Update pages: a warning that was shown, or the timing of a keystroke."""
+    if isinstance(data, dict) and data.get('type') == 'plan_warning':
+        _plan_warning_store(player, data, scenario_number)
+    else:
+        _append_keylog_event(player, 'plan_keylog', data)
+
+
+def _plan_warning_store(player: Player, data, scenario_number):
+    """Counts a warning shown by planWarning() in CS1/partials/plan_tool_scripts.html, and keeps the
+    changes in spending that led to the first warning of the scenario."""
+    timing = _plan_scenario_timing(player, scenario_number)
+    kind = data.get('kind')
+    if kind not in PLAN_WARNING_KINDS[timing]:
+        return
+    count_field = f'{timing}_warned_{kind}'
+    setattr(player, count_field, getattr(player, count_field) + 1)
+
+    changes = data.get('changes')
+    plausible = (
+        isinstance(changes, list) and len(changes) == C.PLAN_YEARS
+        and all(type(change) is int and abs(change) <= PLAN_MAX_AMOUNT for change in changes))
+    if plausible and player.field_maybe_none(f'{timing}_change_y1_initial') is None:
+        for i, change in zip(PLAN_YEAR_NUMBERS, changes):
+            setattr(player, f'{timing}_change_y{i}_initial', change)
+
+
 def _plan_update_store(player: Player, scenario_number):
     """Derives the measure that was not entered (change or spending) and stores the projection."""
     p = _plan_params(player)
@@ -713,6 +790,11 @@ def _plan_update_store(player: Player, scenario_number):
             spend = base + getattr(player, f'{timing}_change_y{i}')
             setattr(player, f'{timing}_spend_y{i}', spend)
         spending.append(spend)
+
+    # without a warning, the first plan the participant tried to submit is the final one
+    if player.field_maybe_none(f'{timing}_change_y1_initial') is None:
+        for i in PLAN_YEAR_NUMBERS:
+            setattr(player, f'{timing}_change_y{i}_initial', getattr(player, f'{timing}_change_y{i}'))
 
     _plan_store_projection(player, timing, p, spending, _plan_inheritance_age(p, timing))
 
@@ -1006,7 +1088,7 @@ class Plan_Update_1(Page):
 
     @staticmethod
     def live_method(player: Player, data):
-        _append_keylog_event(player, 'plan_keylog', data)
+        _plan_update_live(player, data, 1)
 
     @staticmethod
     def before_next_page(player: Player, timeout_happened):
@@ -1048,7 +1130,7 @@ class Plan_Update_2(Page):
 
     @staticmethod
     def live_method(player: Player, data):
-        _append_keylog_event(player, 'plan_keylog', data)
+        _plan_update_live(player, data, 2)
 
     @staticmethod
     def before_next_page(player: Player, timeout_happened):

@@ -22,6 +22,8 @@
         {{ if layout == 'reframed' }}
             <strong>Please enter your plan for spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
             The table and the graph update as you type.
+            The boxes show your initial plan in gray: please type a number into every box,
+            also for years in which you would spend the same as in your initial plan.
         {{ elif layout == 'natural_1' }}
             <strong>Please enter your plan for changes in spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
             The table and the graph update as you type.
@@ -100,6 +102,16 @@
     </div>
 
     <div class="plan-error" id="plan-error" role="alert"></div>
+
+    <!-- Warning that appears if Next is pressed with a plan that hardly reacts to the scenario,
+         see planWarning() in partials/plan_tool_scripts.html -->
+    <div class="plan-warning" id="plan-warning" role="alertdialog" aria-modal="true" aria-labelledby="plan-warning-text">
+        <div class="plan-warning-box">
+            <p class="plan-warning-text" id="plan-warning-text"></p>
+            <button id="plan-warning-back" class="btn btn-secondary" type="button">Go back and review</button>
+            <button id="plan-warning-proceed" class="btn btn-primary" type="button">Proceed anyway</button>
+        </div>
+    </div>
 
     {{ if layout == 'natural_2' }}
         <div style="margin-top: 30px;"><strong>Reminder: Initial Financial Plan</strong></div>

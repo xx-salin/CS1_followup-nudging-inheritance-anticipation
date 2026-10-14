@@ -7,7 +7,9 @@
     const form = document.getElementById('form');
     const inputs = cfg.fields.map(function (name) { return document.getElementById('id_' + name); });
     const errorBox = document.getElementById('plan-error');
+    const warningBox = document.getElementById('plan-warning');  // only on the update pages
     let submitAttempted = false;
+    let warningsOff = !warningBox;  // also true once the participant chose to proceed anyway
 
     function money(value) {
         const rounded = Math.round(value);
@@ -154,6 +156,72 @@
         return null;
     }
 
+    function sum(values) {
+        return values.reduce(function (total, value) { return total + value; }, 0);
+    }
+
+    function agesText(ages) {
+        if (ages.length === 1) return `age ${ages[0]}`;
+        if (ages.length === 2) return `ages ${ages[0]} and ${ages[1]}`;
+        return `ages ${ages[0]} to ${ages[ages.length - 1]}`;
+    }
+
+    // Warning for a plan that hardly reacts to the scenario, to avoid a lazy "same plan as before";
+    // null if there is none. `changes` is the change in spending per plan year. The amounts up to
+    // which a warning is shown come from PLAN_WARNING_DEFAULTS in __init__.py.
+    function planWarning(changes) {
+        // (almost) the same plan as before
+        const totalChange = sum(changes.map(Math.abs));
+        if (cfg.warning_low_total !== null && totalChange <= cfg.warning_low_total) {
+            const stated = totalChange === 0
+                ? `the inheritance would not change your spending in any of the next ${years} years`
+                : `the inheritance would change your spending by only ${money(totalChange)} in total ` +
+                    `over the next ${years} years`;
+            const kept = sum(changes) > 0 ? 'almost the entire inheritance' : 'the entire inheritance';
+            return {
+                kind: 'low_total',
+                text: `According to your entries, ${stated}. Note that this implies you would leave ${kept}, ` +
+                    `and any interest on it, in your savings until at least age ${cfg.ages[years - 1]}.`,
+            };
+        }
+
+        // (almost) no additional spending before the inheritance is received
+        const yearsBefore = cfg.ages.indexOf(cfg.inheritance_age);
+        if (cfg.warning_low_before === null || yearsBefore < 1) return null;
+        const before = changes.slice(0, yearsBefore);
+        const increase = sum(before);
+        if (increase > cfg.warning_low_before) return null;
+
+        const span = yearsBefore === 1 ? 'the year' : `the ${yearsBefore} years`;
+        const ages = agesText(cfg.ages.slice(0, yearsBefore));
+        let stated;
+        if (before.every(function (change) { return change === 0; })) {
+            stated = `the inheritance would not change your spending in ${span} before you receive it (${ages})`;
+        } else if (increase > 0) {
+            stated = `the inheritance would increase your spending by only ${money(increase)} in total ` +
+                `in ${span} before you receive it (${ages})`;
+        } else {
+            stated = `you would not spend more in ${span} before you receive the inheritance (${ages}) ` +
+                'than in your initial plan';
+        }
+        return {
+            kind: 'low_before',
+            text: `According to your entries, ${stated}. Note that this implies you would ` +
+                `${increase > 0 ? 'hardly use' : 'not use'} the inheritance before you receive it ` +
+                `at age ${cfg.inheritance_age}.`,
+        };
+    }
+
+    // The warning is shown on top of the page; _plan_warning_store() in __init__.py keeps a record of it
+    function showWarning(warning, changes) {
+        document.getElementById('plan-warning-text').textContent = warning.text;
+        warningBox.style.display = 'block';
+        document.getElementById('plan-warning-back').focus();
+        try {
+            liveSend({type: 'plan_warning', kind: warning.kind, changes: changes});
+        } catch (error) {}
+    }
+
     function setMoneyCell(id, value) {
         const cell = document.getElementById(id);
         if (!cell) return;
@@ -245,6 +313,8 @@
     inputs.forEach(function (input, year) {
         input.setAttribute('step', '1');
         input.setAttribute('aria-label', 'Age ' + cfg.ages[year]);
+        // updated spending: the box shows the initial plan in gray until a number is typed
+        if (cfg.mode === 'level') input.setAttribute('placeholder', cfg.base_spend[year]);
         input.addEventListener('input', function (event) {
             // keystroke timing, as on the other pages with typed answers
             try {
@@ -263,16 +333,42 @@
     // Registered before oTree's own submit handler, so a blocked submit does not disable the Next button
     form.addEventListener('submit', function (event) {
         submitAttempted = true;
-        if (render()) {
+        const block = function () {
             event.preventDefault();
             event.stopImmediatePropagation();
+        };
+        if (render()) {
+            block();
             errorBox.scrollIntoView({behavior: 'smooth', block: 'center'});
+            return;
+        }
+        if (warningsOff) return;
+
+        const changes = inputs.map(function (_, year) { return spending(year, false) - cfg.base_spend[year]; });
+        const warning = planWarning(changes);
+        if (warning) {
+            block();
+            showWarning(warning, changes);
         }
     });
 
-    // Used by the "Skip for testing" buttons
+    if (warningBox) {
+        const hideWarning = function () { warningBox.style.display = 'none'; };
+        document.getElementById('plan-warning-back').addEventListener('click', hideWarning);
+        document.getElementById('plan-warning-proceed').addEventListener('click', function () {
+            warningsOff = true;
+            hideWarning();
+            document.querySelector('.otree-btn-next').click();
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') hideWarning();
+        });
+    }
+
+    // Used by the "Skip for testing" buttons, which also skip the warnings
     window.planFill = function (values) {
         inputs.forEach(function (input, year) { input.value = values[year]; });
+        warningsOff = true;
         render();
     };
 
