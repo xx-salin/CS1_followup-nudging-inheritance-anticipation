@@ -70,8 +70,8 @@
     {{ include "CS1/partials/plan_tool_scripts.html" }}
     <script>
         function skipPage() {
-            // the plan of ToyLifecycleTool.xlsx
-            planFill([27000, 27000, 27000, 27000, 25000, 25000, 25000, 25000]);
+            // the plan of ToyLifecycleTool.xlsx, or a similar one for other tool parameters
+            planFill(js_vars.example_spend);
         }
     </script>
 {{ endblock }}

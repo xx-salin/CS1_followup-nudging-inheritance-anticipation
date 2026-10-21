@@ -1,7 +1,10 @@
 from otree.api import Bot, Submission, SubmissionMustFail, expect
 
 from . import *
-from . import _plan_ages, _plan_income, _plan_inheritance_age, _plan_params, _plan_scenario_timing, _plan_update_fields
+from . import (
+    _plan_example_spending, _plan_income, _plan_inheritance_age, _plan_params, _plan_scenario_timing,
+    _plan_update_fields,
+)
 
 # Run with:  otree test CS1 12
 # 12 participants cover every cell of layout x scenario order x follow-up framing.
@@ -83,13 +86,9 @@ class PlayerBot(Bot):
         yield AttentionCheckResult
 
         yield Plan_Intro
+        base = _plan_example_spending(p)  # also entered by the "Skip for testing" button
         if sheet_parameters:
-            base = SHEET_BASE_SPENDING
-        else:
-            # saves a tenth of the salary, spends a third more than the pension
-            base = [
-                round(_plan_income(p, age) * (0.9 if age < p['retirement_age'] else 4 / 3))
-                for age in _plan_ages(p)]
+            expect(base, SHEET_BASE_SPENDING)
         base_fields = Plan_Baseline.form_fields
         beyond_means = p['initial_wealth'] + p['salary'] + p['pension'] + p['inheritance'] + 1
         yield SubmissionMustFail(Plan_Baseline, dict(zip(base_fields[:-1], base)))  # a year is missing
@@ -188,4 +187,4 @@ class PlayerBot(Bot):
             yield Demographics_1, demographics
 
         yield Feedback, dict(OpenFeedback='')
-        expect('Prolific', 'in', self.html)
+        expect(f'cc={self.session.config["prolific_completion_code"]}', 'in', self.html)

@@ -90,6 +90,8 @@ GROUPS = [
 ]
 
 PLAN_YEARS = range(1, 9)
+# plan of ToyLifecycleTool.xlsx; with other tool parameters in settings.py, plan_values_for_page()
+# takes the plan from the page instead
 BASE_SPENDING = [27000, 27000, 27000, 27000, 25000, 25000, 25000, 25000]
 
 
@@ -105,6 +107,25 @@ def _reaction_values(present_changes, future_changes):
         values.update(_plan_values(f"{timing}_change", changes))
         values.update(_plan_values(
             f"{timing}_spend", [base + change for base, change in zip(BASE_SPENDING, changes)]))
+    return values
+
+
+def plan_values_for_page(page, number_values):
+    """Spending entries that follow the plan a planning-tool page is based on (its js_vars), so
+    that the script works whatever the tool parameters in settings.py are (retirement age etc.):
+    the baseline gets the plan of the page's "Skip for testing" button, and the reframed layout
+    the persona's change in spending added to the participant's initial plan."""
+    cfg = page.evaluate("() => (typeof js_vars === 'undefined' ? null : js_vars)")
+    if not cfg or not cfg.get("fields"):
+        return number_values
+    values = dict(number_values)
+    if cfg["mode"] == "baseline":
+        values.update(_plan_values("base_spend", cfg["example_spend"]))
+    elif cfg["mode"] == "level":
+        timing = cfg["fields"][0].split("_")[0]  # present / future
+        changes = [int(values[f"{timing}_change_y{year}"]) for year in PLAN_YEARS]
+        values.update(_plan_values(
+            f"{timing}_spend", [base + change for base, change in zip(cfg["base_spend"], changes)]))
     return values
 
 
@@ -402,6 +423,8 @@ def resolve_page_label(page):
 # ---------------------------------------------------------------------------
 
 def fill_fields(page, number_values, blank_fields, radio_values):
+    number_values = plan_values_for_page(page, number_values)
+
     # Hidden recaptcha bypass
     for sel in ["textarea[name='recaptcha_response']", "input[name='recaptcha_response']"]:
         if page.locator(sel).count() > 0:

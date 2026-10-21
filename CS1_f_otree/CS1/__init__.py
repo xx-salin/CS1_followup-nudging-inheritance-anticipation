@@ -215,7 +215,7 @@ class Player(BasePlayer):
                                                 choices=[
                                                     [1, 'Yes'],
                                                     [2, 'No'],
-                                                    [3, 'Prefer not so say'],
+                                                    [3, 'Prefer not to say'],
                                                 ],
                                                 verbose_name='Do you have children?',
                                                 widget=widgets.RadioSelect())
@@ -427,8 +427,9 @@ def _plan_params(player: Player):
 def _plan_check_params(p):
     """Stops the creation of a session whose parameters the tool cannot handle."""
     problems = []
-    if p['interest_rate'] <= -1 or p['growth_rate'] <= -1:
-        problems.append('interest_rate and growth_rate must be larger than -1')
+    for name in ['interest_rate', 'growth_rate']:
+        if not -1 < p[name] < 1:
+            problems.append(f'{name} is a share per year (0.03 = 3%), so it must be between -1 and 1')
     if p['retirement_age'] > p['last_age'] + 1:
         problems.append(f'retirement_age must be at most {p["last_age"] + 1}, '
                         'because the years after the plan are calculated with the pension as income')
@@ -468,6 +469,15 @@ def _plan_warning_amount(p, share_name):
     """Amount up to which a warning is shown on the Plan_Update pages; None if it is switched off."""
     share = p[share_name]
     return None if share is None else round(share * p['inheritance'])
+
+
+def _plan_example_spending(p):
+    """Plan entered by the "Skip for testing" button of Plan_Baseline and by the bots: the plan of
+    ToyLifecycleTool.xlsx, or a plan of the same kind if the tool parameters differ from the sheet."""
+    if all(p[name] == value for name, value in PLAN_PARAM_DEFAULTS.items()):
+        return [27000, 27000, 27000, 27000, 25000, 25000, 25000, 25000]
+    # saves a tenth of the salary, spends a third more than the pension
+    return [round(_plan_income(p, age) * (0.9 if age < p['retirement_age'] else 4 / 3)) for age in _plan_ages(p)]
 
 
 def _plan_base_spending(player: Player):
@@ -694,6 +704,7 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
         fields=fields,
         ages=_plan_ages(p),
         base_spend=_plan_base_spending(player) if mode != 'baseline' else [],
+        example_spend=_plan_example_spending(p) if mode == 'baseline' else [],
         initial_wealth=p['initial_wealth'],
         salary=p['salary'],
         pension=p['pension'],
@@ -1355,6 +1366,11 @@ class Feedback(Page):
 class LinkToProlific(Page):
     form_model = 'player'
     template_name = 'CS1/LinkToProlific.html'
+
+    @staticmethod
+    def vars_for_template(player: Player):
+        code = player.session.config['prolific_completion_code']
+        return {'completion_url': f'https://app.prolific.com/submissions/complete?cc={code}'}
 
 class testing(Page):
     form_model = 'player'
