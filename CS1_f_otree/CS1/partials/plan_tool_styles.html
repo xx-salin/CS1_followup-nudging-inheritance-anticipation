@@ -188,6 +188,8 @@
     .plan-timeline {
         display: flex;
         margin: 22px 0 6px 0;
+        /* room for an arrow on the first or last tick */
+        padding: 0 45px;
         text-align: center;
     }
 
@@ -204,6 +206,12 @@
 
     .plan-timeline-year:last-child .plan-timeline-age {
         border-right: 2px solid black;
+    }
+
+    /* centered on the tick at the beginning of the year */
+    .plan-timeline-payment {
+        width: 90px;
+        margin-left: -45px;
     }
 
     .plan-timeline-arrow {

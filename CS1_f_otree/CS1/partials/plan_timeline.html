@@ -3,8 +3,11 @@
         <div class="plan-timeline-year">
             <div class="plan-timeline-age">Age {{ year.age }}</div>
             {{ if year.is_inheritance_year }}
-                <span class="plan-timeline-arrow">↑</span>
-                Inheritance Payment
+                <!-- at the beginning of the year, like the payments in the planning tool -->
+                <div class="plan-timeline-payment">
+                    <span class="plan-timeline-arrow">↑</span>
+                    Inheritance Payment
+                </div>
             {{ endif }}
         </div>
     {{ endfor }}
