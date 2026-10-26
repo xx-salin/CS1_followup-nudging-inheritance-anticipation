@@ -43,6 +43,10 @@
                     <td class="plan-label">Savings that year</td>
                     {{ for year in years }}<td id="plan-saving-{{ year.number }}">–</td>{{ endfor }}
                 </tr>
+                <tr>
+                    <td class="plan-label">Spending from total savings that year</td>
+                    {{ for year in years }}<td id="plan-dissaving-{{ year.number }}">–</td>{{ endfor }}
+                </tr>
                 <tr class="plan-total">
                     <td class="plan-label">Total savings</td>
                     {{ for year in years }}<td id="plan-total-{{ year.number }}">–</td>{{ endfor }}

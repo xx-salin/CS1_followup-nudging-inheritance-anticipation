@@ -281,7 +281,10 @@
             const result = project(preview.map(function (value) { return value === null ? 0 : value; }));
 
             for (let year = 0; year < years; year++) {
-                setMoneyCell('plan-saving-' + (year + 1), year < filled ? result.rows[year].saving : null);
+                // what is saved, and what is taken out of savings, as two amounts that are never negative
+                const saving = result.rows[year].saving;
+                setMoneyCell('plan-saving-' + (year + 1), year < filled ? Math.max(saving, 0) : null);
+                setMoneyCell('plan-dissaving-' + (year + 1), year < filled ? Math.max(-saving, 0) : null);
                 setMoneyCell('plan-total-' + (year + 1), year < filled ? result.rows[year].total : null);
             }
 

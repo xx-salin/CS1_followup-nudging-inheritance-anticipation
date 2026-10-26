@@ -670,8 +670,8 @@ def _plan_vars(player: Player, timing=None):
         if has_base:
             row.update(
                 base_spend=_money(base_spending[year]),
-                base_saving=_money(base_rows[year]['saving']),
-                base_saving_negative=base_rows[year]['saving'] < 0,
+                base_saving=_money(max(base_rows[year]['saving'], 0)),
+                base_dissaving=_money(max(-base_rows[year]['saving'], 0)),
                 base_total=_money(base_rows[year]['total']),
             )
         years.append(row)
