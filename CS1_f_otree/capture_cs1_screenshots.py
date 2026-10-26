@@ -28,7 +28,7 @@ BotScreening: the Next button is disabled on load by JS. The script
   calls window.onCaptchaVerified('automation-bypass') to re-enable it,
   then clicks it. No changes to __init__.py needed.
 
-Scenario popup: the scenario pages use a custom #nextBtn (not oTree's
+Scenario popup: the scenario page uses a custom #nextBtn (not oTree's
   standard next button) with a DOM #quick-alert div. The script:
     1. Screenshots the page normally
     2. Clicks #nextBtn  → #quick-alert becomes visible
@@ -36,7 +36,7 @@ Scenario popup: the scenario pages use a custom #nextBtn (not oTree's
     4. Clicks #quick-alert-ok to dismiss it
     5. Clicks #nextBtn again → form.submit() → navigates away
 
-Plan warning popup: on the Plan_Update pages, pressing Next with a plan that
+Plan warning popup: on the Plan_Update page, pressing Next with a plan that
   hardly reacts to the scenario shows the #plan-warning popup instead of
   submitting (personas B and C, see PLAN_WARNING_DEFAULTS in __init__.py).
   The script screenshots the popup and clicks #plan-warning-proceed
@@ -80,12 +80,12 @@ CAPTURE_ONCE_LABELS = {
 
 # ---------------------------------------------------------------------------
 # Treatment cells (must match creating_session order in __init__.py)
-# layout x order of the scenarios x framing of the own-inheritance follow-up
+# layout x scenario (inheritance today / in the future) x framing of the own-inheritance follow-up
 # ---------------------------------------------------------------------------
 GROUPS = [
-    f"{layout}_{round_order}_{frame}"
+    f"{layout}_{scenario}_{frame}"
     for frame in ["spendframe", "saveframe"]
-    for round_order in ["present_first", "future_first"]
+    for scenario in ["present", "future"]
     for layout in ["natural_2", "natural_1", "reframed"]
 ]
 
@@ -799,7 +799,7 @@ def main():
     num_treatments = min(args.treatments, len(GROUPS))
 
     out_root = Path(args.out)
-    # Output goes to: screenshots/CS1_personaA/treatment_01_natural_2_present_first_spendframe/ etc.
+    # Output goes to: screenshots/CS1_personaA/treatment_01_natural_2_present_spendframe/ etc.
     out_dir = out_root / f"{args.app}_persona{persona_key}"
     out_dir.mkdir(parents=True, exist_ok=True)
 

@@ -10,12 +10,15 @@ doc = """
 Follow-up to CS1: does the way spending reactions are elicited change the reaction to an inheritance?
 
 Participants take the role of a 62-year-old planning for retirement and fill out a spending plan in a
-lifecycle planning tool (see ToyLifecycleTool.xlsx). They then face two scenarios in random order
-(within-subject) in which they inherit a one-time payment either today or in the future, and update
-their plan in one of three layouts (between-subject, named after the sheets of the tool):
-    natural_2: enter the change in spending per year; the initial plan is shown as a static reminder
-    natural_1: enter the change in spending per year; the tool and a graph update dynamically
-    reframed:  enter the updated spending per year; the tool and a graph update dynamically
+lifecycle planning tool (see ToyLifecycleTool.xlsx). They then face one scenario in which they inherit a
+one-time payment, and update their plan. 3 x 2 between-subject design:
+    layout (named after the sheets of the tool)
+        natural_2: enter the change in spending per year; the initial plan is shown as a static reminder
+        natural_1: enter the change in spending per year; the tool and a graph update dynamically
+        reframed:  enter the updated spending per year; the tool and a graph update dynamically
+    scenario
+        present: the inheritance is paid today (first plan year, age 63)
+        future:  the inheritance is paid in inheritance_delay_years years (age 65)
 In every layout all years have to be filled in actively, and a plan that hardly reacts to the scenario
 leads to a warning that the participant can follow or ignore (see PLAN_WARNING_DEFAULTS).
 The concluding survey covers demographics and the participant's own expected parental inheritance.
@@ -29,7 +32,7 @@ class C(BaseConstants):
     KEYLOG_EVENT_CAP = 2000
     PLAN_YEARS = 8  # years for which spending is planned
     LAYOUTS = ['natural_2', 'natural_1', 'reframed']
-    ROUND_ORDERS = ['present_first', 'future_first']
+    SCENARIOS = ['present', 'future']  # inheritance today / in the future
     CURRENCIES = {'AUD': 'A$', 'GBP': '£', 'EUR': '€', 'USD': '$'}
     COMPLICATED_WORDS = ['Schadenfreude', 'Bourgeoisie', 'Worcestershire']
     TESTING_SKIP_TOKEN = 'skipped-for-testing'  # sent by the "Skip for testing" button of BotScreening
@@ -51,7 +54,7 @@ class Player(BasePlayer):
     # CREATING SESSION -
     prolific_id = models.StringField(blank=True, label='Your Prolific ID')
     layout = models.StringField()  # natural_2 = change in spending, natural_1 = change in spending + dynamic tool, reframed = updated spending + dynamic tool
-    round_order = models.StringField()  # present_first / future_first
+    scenario = models.StringField()  # present = inheritance today, future = inheritance in the future
     mother_father = models.IntegerField(initial=0)  # mother = 1, father = 2
     inh_followup_frame = models.IntegerField()  # spending frame = 1, saving frame = 2
     # BOT SCREENING (Attention checks?)
@@ -390,11 +393,11 @@ PLAN_PARAM_DEFAULTS = dict(
     inheritance_delay_years=2,  # future scenario: years between the first plan year and the inheritance
     bequest_age=90,
 )
-# Warnings on the Plan_Update pages for a plan that hardly reacts to the scenario, to avoid a lazy
+# Warnings on the Plan_Update page for a plan that hardly reacts to the scenario, to avoid a lazy
 # "same plan as before". The participant can go back or proceed anyway. Each warning is shown up to
 # a share of the inheritance; None switches it off. They can be changed per session as well.
 PLAN_WARNING_DEFAULTS = dict(
-    # both scenarios: the changes in spending of all plan years, up or down, add up to at most this share
+    # either scenario: the changes in spending of all plan years, up or down, add up to at most this share
     warning_low_total_share=0.05,
     # future scenario: spending in the years before the inheritance rises by at most this share in total
     warning_low_before_share=0.05,
@@ -460,13 +463,8 @@ def _plan_inheritance_age(p, timing):
     return None
 
 
-def _plan_scenario_timing(player: Player, scenario_number):
-    timings = ['present', 'future'] if player.round_order == 'present_first' else ['future', 'present']
-    return timings[scenario_number - 1]
-
-
 def _plan_warning_amount(p, share_name):
-    """Amount up to which a warning is shown on the Plan_Update pages; None if it is switched off."""
+    """Amount up to which a warning is shown on the Plan_Update page; None if it is switched off."""
     share = p[share_name]
     return None if share is None else round(share * p['inheritance'])
 
@@ -724,35 +722,29 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
     )
 
 
-def _plan_scenario_vars(player: Player, scenario_number):
-    timing = _plan_scenario_timing(player, scenario_number)
-    context = _plan_vars(player, timing)
+def _plan_scenario_vars(player: Player):
+    context = _plan_vars(player, player.scenario)
     context.update(
-        scenario_number=scenario_number,
-        scenario_text=_plan_scenario_text(player, timing),
-        warning_field=f'{timing}_scenario_warning',
+        scenario_text=_plan_scenario_text(player, player.scenario),
+        warning_field=f'{player.scenario}_scenario_warning',
     )
     return context
 
 
-def _plan_update_fields(player: Player, scenario_number):
-    timing = _plan_scenario_timing(player, scenario_number)
+def _plan_update_fields(player: Player):
     entered = 'spend' if player.layout == 'reframed' else 'change'
-    return [f'{timing}_{entered}_y{i}' for i in PLAN_YEAR_NUMBERS]
+    return [f'{player.scenario}_{entered}_y{i}' for i in PLAN_YEAR_NUMBERS]
 
 
-def _plan_update_js_vars(player: Player, scenario_number):
+def _plan_update_js_vars(player: Player):
     mode = 'level' if player.layout == 'reframed' else 'change'
-    return _plan_js_vars(
-        player, mode, _plan_update_fields(player, scenario_number),
-        _plan_scenario_timing(player, scenario_number),
-    )
+    return _plan_js_vars(player, mode, _plan_update_fields(player), player.scenario)
 
 
-def _plan_update_error(player: Player, values, scenario_number):
+def _plan_update_error(player: Player, values):
     p = _plan_params(player)
-    inheritance_age = _plan_inheritance_age(p, _plan_scenario_timing(player, scenario_number))
-    entries = [values.get(field) for field in _plan_update_fields(player, scenario_number)]
+    inheritance_age = _plan_inheritance_age(p, player.scenario)
+    entries = [values.get(field) for field in _plan_update_fields(player)]
     if player.layout == 'reframed':
         return _plan_error(p, entries, inheritance_age)
 
@@ -761,18 +753,18 @@ def _plan_update_error(player: Player, values, scenario_number):
     return _plan_error(p, spending, inheritance_age, base_spending)
 
 
-def _plan_update_live(player: Player, data, scenario_number):
-    """Messages of the Plan_Update pages: a warning that was shown, or the timing of a keystroke."""
+def _plan_update_live(player: Player, data):
+    """Messages of the Plan_Update page: a warning that was shown, or the timing of a keystroke."""
     if isinstance(data, dict) and data.get('type') == 'plan_warning':
-        _plan_warning_store(player, data, scenario_number)
+        _plan_warning_store(player, data)
     else:
         _append_keylog_event(player, 'plan_keylog', data)
 
 
-def _plan_warning_store(player: Player, data, scenario_number):
+def _plan_warning_store(player: Player, data):
     """Counts a warning shown by planWarning() in CS1/partials/plan_tool_scripts.html, and keeps the
-    changes in spending that led to the first warning of the scenario."""
-    timing = _plan_scenario_timing(player, scenario_number)
+    changes in spending that led to the first warning."""
+    timing = player.scenario
     kind = data.get('kind')
     if kind not in PLAN_WARNING_KINDS[timing]:
         return
@@ -788,10 +780,10 @@ def _plan_warning_store(player: Player, data, scenario_number):
             setattr(player, f'{timing}_change_y{i}_initial', change)
 
 
-def _plan_update_store(player: Player, scenario_number):
+def _plan_update_store(player: Player):
     """Derives the measure that was not entered (change or spending) and stores the projection."""
     p = _plan_params(player)
-    timing = _plan_scenario_timing(player, scenario_number)
+    timing = player.scenario
     spending = []
     for i, base in zip(PLAN_YEAR_NUMBERS, _plan_base_spending(player)):
         if player.layout == 'reframed':
@@ -824,17 +816,18 @@ def creating_session(subsession: Subsession):
     if subsession.round_number == 1:
         _plan_check_params(_plan_params_from_config(subsession.session.config))
 
-        # Between-subject cells: input layout x order of the two scenarios x framing of the own-inheritance follow-up.
-        # The layout changes fastest, so that small sessions are balanced on it first.
+        # Between-subject cells: layout x scenario (3 x 2), crossed with the framing of the own-inheritance
+        # follow-up. The layout changes fastest and the framing slowest, so that every 6 participants
+        # cover the 3 x 2 design once.
         cells = [
-            (layout, round_order, frame)
+            (layout, scenario, frame)
             for frame in [1, 2]
-            for round_order in C.ROUND_ORDERS
+            for scenario in C.SCENARIOS
             for layout in C.LAYOUTS
         ]
 
         for i, player in enumerate(subsession.get_players()):
-            player.layout, player.round_order, player.inh_followup_frame = cells[i % len(cells)]
+            player.layout, player.scenario, player.inh_followup_frame = cells[i % len(cells)]
             player.mother_father = random.randint(1, 2)
 
 
@@ -1063,89 +1056,45 @@ class Plan_Baseline(Page):
         _plan_store_projection(player, 'base', _plan_params(player), _plan_base_spending(player))
 
 
-# The two scenarios (inheritance today / in the future) are shown in the order given by player.round_order.
-class Plan_Scenario_1(Page):
-    template_name = 'CS1/Plan_Scenario.html'
+# Each participant sees one scenario (player.scenario): the inheritance is paid today or in the future.
+class Plan_Scenario(Page):
     form_model = 'player'
 
     @staticmethod
     def get_form_fields(player: Player):
-        return [f'{_plan_scenario_timing(player, 1)}_scenario_warning']
+        return [f'{player.scenario}_scenario_warning']
 
     @staticmethod
     def vars_for_template(player: Player):
-        return _plan_scenario_vars(player, 1)
+        return _plan_scenario_vars(player)
 
 
-class Plan_Update_1(Page):
-    template_name = 'CS1/Plan_Update.html'
+class Plan_Update(Page):
     form_model = 'player'
 
     @staticmethod
     def get_form_fields(player: Player):
-        return _plan_update_fields(player, 1)
+        return _plan_update_fields(player)
 
     @staticmethod
     def vars_for_template(player: Player):
-        return _plan_scenario_vars(player, 1)
+        return _plan_scenario_vars(player)
 
     @staticmethod
     def js_vars(player: Player):
-        return _plan_update_js_vars(player, 1)
+        return _plan_update_js_vars(player)
 
     @staticmethod
     def error_message(player: Player, values):
-        return _plan_update_error(player, values, 1)
+        return _plan_update_error(player, values)
 
     @staticmethod
     def live_method(player: Player, data):
-        _plan_update_live(player, data, 1)
+        _plan_update_live(player, data)
 
     @staticmethod
     def before_next_page(player: Player, timeout_happened):
-        _plan_update_store(player, 1)
-
-
-class Plan_Scenario_2(Page):
-    template_name = 'CS1/Plan_Scenario.html'
-    form_model = 'player'
-
-    @staticmethod
-    def get_form_fields(player: Player):
-        return [f'{_plan_scenario_timing(player, 2)}_scenario_warning']
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        return _plan_scenario_vars(player, 2)
-
-
-class Plan_Update_2(Page):
-    template_name = 'CS1/Plan_Update.html'
-    form_model = 'player'
-
-    @staticmethod
-    def get_form_fields(player: Player):
-        return _plan_update_fields(player, 2)
-
-    @staticmethod
-    def vars_for_template(player: Player):
-        return _plan_scenario_vars(player, 2)
-
-    @staticmethod
-    def js_vars(player: Player):
-        return _plan_update_js_vars(player, 2)
-
-    @staticmethod
-    def error_message(player: Player, values):
-        return _plan_update_error(player, values, 2)
-
-    @staticmethod
-    def live_method(player: Player, data):
-        _plan_update_live(player, data, 2)
-
-    @staticmethod
-    def before_next_page(player: Player, timeout_happened):
-        _plan_update_store(player, 2)
+        _plan_update_store(player)
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -1384,8 +1333,7 @@ page_sequence = [
 
     Plan_Intro, Plan_Baseline,
 
-    Plan_Scenario_1, Plan_Update_1,
-    Plan_Scenario_2, Plan_Update_2,
+    Plan_Scenario, Plan_Update,
 
     AttentionCheck1_AI, AttentionCheck2_AI, BotScreening,
 

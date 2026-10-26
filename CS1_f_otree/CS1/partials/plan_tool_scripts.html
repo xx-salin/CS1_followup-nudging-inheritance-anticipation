@@ -7,7 +7,7 @@
     const form = document.getElementById('form');
     const inputs = cfg.fields.map(function (name) { return document.getElementById('id_' + name); });
     const errorBox = document.getElementById('plan-error');
-    const warningBox = document.getElementById('plan-warning');  // only on the update pages
+    const warningBox = document.getElementById('plan-warning');  // only on the update page
     let submitAttempted = false;
     let warningsOff = !warningBox;  // also true once the participant chose to proceed anyway
 
@@ -24,7 +24,7 @@
         return Number.isFinite(value) ? value : null;
     }
 
-    // Spending implied by the entry for a plan year. On the update pages, the preview uses the
+    // Spending implied by the entry for a plan year. On the update page, the preview uses the
     // initial plan for years that are still empty.
     function spending(year, preview) {
         const value = entry(year);
