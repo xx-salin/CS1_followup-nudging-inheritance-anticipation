@@ -139,7 +139,7 @@
             </table>
         </div>
         <ul class="plan-notes">
-            {{ for note in base_notes }}<li>{{ note }}</li>{{ endfor }}
+            {{ for note in base_notes }}<li><strong>{{ note.main }}</strong> {{ note.detail }}</li>{{ endfor }}
         </ul>
     {{ endif }}
 

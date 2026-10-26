@@ -113,15 +113,16 @@
         return {rows: rows, depletionAge: depletionAge, bequest: bequest};
     }
 
-    // Same wording as _plan_notes() in __init__.py
+    // Same wording as _plan_notes() in __init__.py: a key sentence (shown in bold) and an explanation
     function notes(result) {
         const usedUp = result.depletionAge === null
-            ? `${cfg.after_plan_text}, your overall savings will never be used up.`
-            : `${cfg.after_plan_text}, your overall savings will be used up by age ${result.depletionAge}.`;
+            ? {main: `${cfg.after_plan_text}, your overall savings will never be used up.`, detail: ''}
+            : {main: `${cfg.after_plan_text}, your overall savings will be used up by age ${result.depletionAge}.`,
+               detail: cfg.depleted_text};
         const left = result.bequest < 0
             ? `If you pass on at age ${cfg.bequest_age}, you will not leave an inheritance.`
             : `If you pass on at age ${cfg.bequest_age}, you will leave an inheritance of ${money(result.bequest)}.`;
-        return [usedUp, left];
+        return [usedUp, {main: left, detail: ''}];
     }
 
     // Same rules and wording as _plan_error() in __init__.py
@@ -288,11 +289,16 @@
             if (notesList) {
                 const lines = filled === years
                     ? notes(result)
-                    : ['Enter your spending for every year to see how long your savings will last.'];
+                    : [{main: '', detail: 'Enter your spending for every year to see how long your savings will last.'}];
                 notesList.innerHTML = '';
                 lines.forEach(function (line) {
                     const item = document.createElement('li');
-                    item.textContent = line;
+                    if (line.main) {
+                        const main = document.createElement('strong');
+                        main.textContent = line.main;
+                        item.appendChild(main);
+                    }
+                    if (line.detail) item.appendChild(document.createTextNode((line.main ? ' ' : '') + line.detail));
                     notesList.appendChild(item);
                 });
             }

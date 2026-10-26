@@ -576,17 +576,30 @@ def _plan_after_plan_text(p):
             f'after age {p["last_age"]}')
 
 
+def _plan_depleted_text(p):
+    """What running out of savings implies; shown after the age at which savings are used up."""
+    pension = 'your pension income'
+    if p['growth_rate'] == 0:
+        pension += f' ({_money(p["pension"])})'
+    return (f'At that age, you can either reduce spending to {pension} permanently, or rebuild savings by '
+            'spending less than your pension income, but you cannot permanently spend more than your '
+            'pension income after your savings are depleted.')
+
+
 def _plan_notes(p, depletion_age, bequest):
-    # Keep the wording in sync with notes() in CS1/partials/plan_tool_scripts.html
+    """Notes below the planning tool: a key sentence (shown in bold) and an explanation.
+    Keep the wording in sync with notes() in CS1/partials/plan_tool_scripts.html"""
     if depletion_age is None:
-        used_up = f'{_plan_after_plan_text(p)}, your overall savings will never be used up.'
+        used_up = dict(main=f'{_plan_after_plan_text(p)}, your overall savings will never be used up.', detail='')
     else:
-        used_up = f'{_plan_after_plan_text(p)}, your overall savings will be used up by age {depletion_age}.'
+        used_up = dict(
+            main=f'{_plan_after_plan_text(p)}, your overall savings will be used up by age {depletion_age}.',
+            detail=_plan_depleted_text(p))
     if bequest < 0:
         left = f'If you pass on at age {p["bequest_age"]}, you will not leave an inheritance.'
     else:
         left = f'If you pass on at age {p["bequest_age"]}, you will leave an inheritance of {_money(bequest)}.'
-    return [used_up, left]
+    return [used_up, dict(main=left, detail='')]
 
 
 def _plan_error(p, spending, inheritance_age=None, base_spending=None):
@@ -712,6 +725,7 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
         interest_rate=p['interest_rate'],
         growth_rate=p['growth_rate'],
         after_plan_text=_plan_after_plan_text(p),
+        depleted_text=_plan_depleted_text(p),
         inheritance=p['inheritance'],
         inheritance_age=_plan_inheritance_age(p, timing),
         bequest_age=p['bequest_age'],
