@@ -2,11 +2,12 @@ from otree.api import Bot, Submission, SubmissionMustFail, expect
 
 from . import *
 from . import (
-    _plan_example_spending, _plan_income, _plan_inheritance_age, _plan_params, _plan_update_fields,
+    _plan_example_spending, _plan_income, _plan_inheritance_age, _plan_params, _plan_scenario_timing,
+    _plan_update_fields,
 )
 
 # Run with:  otree test CS1 12
-# 12 participants cover every cell of layout x scenario x follow-up framing.
+# 12 participants cover every cell of layout x scenario order x follow-up framing.
 #
 # The projections stored by the planning tool (formulas) are compared with a plain year-by-year
 # calculation, whatever the tool parameters in settings.py are. With the default parameters, the
@@ -75,7 +76,7 @@ class PlayerBot(Bot):
 
     def play_round(self):
         expect(self.player.layout, 'in', C.LAYOUTS)
-        expect(self.player.scenario, 'in', C.SCENARIOS)
+        expect(self.player.round_order, 'in', C.ROUND_ORDERS)
         p = _plan_params(self.player)
         sheet_parameters = all(p[name] == value for name, value in PLAN_PARAM_DEFAULTS.items())
 
@@ -98,64 +99,60 @@ class PlayerBot(Bot):
         if sheet_parameters:
             expect((self.stored('base_depletion_age'), self.stored('base_bequest')), SHEET_BASE_RESULT)
 
-        # one scenario per participant
         entered = 'spend' if self.player.layout == 'reframed' else 'change'
-        timing = self.player.scenario
-        other_timing = 'future' if timing == 'present' else 'present'
-        inheritance_age = _plan_inheritance_age(p, timing)
-        fields = _plan_update_fields(self.player)
-        expect(fields[0], f'{timing}_{entered}_y1')
-        inheritance_today = 'passed away last night' in self.html
-        expect('different scenario', 'not in', self.html)
+        update_pages = [(Plan_Scenario_1, Plan_Update_1), (Plan_Scenario_2, Plan_Update_2)]
+        for scenario_number, (scenario_page, update_page) in enumerate(update_pages, start=1):
+            timing = _plan_scenario_timing(self.player, scenario_number)
+            inheritance_age = _plan_inheritance_age(p, timing)
+            fields = _plan_update_fields(self.player, scenario_number)
+            expect(fields[0], f'{timing}_{entered}_y1')
+            inheritance_today = 'passed away last night' in self.html
 
-        # the page submits through its own button, which the HTML check does not recognise
-        yield Submission(Plan_Scenario, {f'{timing}_scenario_warning': 0}, check_html=False)
-        expect(inheritance_today, timing == 'present')
+            # the page submits through its own button, which the HTML check does not recognise
+            yield Submission(scenario_page, {f'{timing}_scenario_warning': 0}, check_html=False)
+            expect(inheritance_today, timing == 'present')
 
-        from_sheet = sheet_parameters and self.case == 'sheet_entries'
-        if from_sheet and entered == 'spend':
-            spending = SHEET_UPDATED_SPENDING
-        elif from_sheet:
-            spending = [base_year + change for base_year, change in zip(base, SHEET_CHANGES[timing])]
-        elif self.case == 'sheet_entries':
-            extra = min(p['inheritance'], p['initial_wealth'])
-            shares = [0.3, 0.2, 0.1, 0.1, 0, 0, 0, 0]
-            spending = [base_year + round(share * extra) for base_year, share in zip(base, shares)]
-        else:
-            spending = [round(base[0] * 0.96)] + base[1:-1] + [round(base[-1] * 0.96)]
-        changes = [spend - base_year for spend, base_year in zip(spending, base)]
+            from_sheet = sheet_parameters and self.case == 'sheet_entries'
+            if from_sheet and entered == 'spend':
+                spending = SHEET_UPDATED_SPENDING
+            elif from_sheet:
+                spending = [base_year + change for base_year, change in zip(base, SHEET_CHANGES[timing])]
+            elif self.case == 'sheet_entries':
+                extra = min(p['inheritance'], p['initial_wealth'])
+                shares = [0.3, 0.2, 0.1, 0.1, 0, 0, 0, 0]
+                spending = [base_year + round(share * extra) for base_year, share in zip(base, shares)]
+            else:
+                spending = [round(base[0] * 0.96)] + base[1:-1] + [round(base[-1] * 0.96)]
+            changes = [spend - base_year for spend, base_year in zip(spending, base)]
 
-        if entered == 'spend':
-            entries = spending
-            infeasible = [beyond_means] + entries[1:]  # savings used up
-        else:
-            entries = changes
-            infeasible = [-base[0] - 1] + entries[1:]  # negative spending
-        yield SubmissionMustFail(Plan_Update, dict(zip(fields[:-1], entries)))  # a year is missing
-        yield SubmissionMustFail(Plan_Update, dict(zip(fields, infeasible)))
+            if entered == 'spend':
+                entries = spending
+                infeasible = [beyond_means] + entries[1:]  # savings used up
+            else:
+                entries = changes
+                infeasible = [-base[0] - 1] + entries[1:]  # negative spending
+            yield SubmissionMustFail(update_page, dict(zip(fields[:-1], entries)))  # a year is missing
+            yield SubmissionMustFail(update_page, dict(zip(fields, infeasible)))
 
-        # spends_less: is warned about a plan without any change, revises it and proceeds
-        warned = self.case == 'spends_less'
-        first_attempt = self.report_warnings(Plan_Update, changes) if warned else changes
-        for t in [1.0, 1.5]:  # keystrokes are still timed
-            Plan_Update.live_method(self.player, dict(field=fields[0], t=t))
-        yield Plan_Update, dict(zip(fields, entries))
+            # spends_less: is warned about a plan without any change, revises it and proceeds
+            warned = self.case == 'spends_less'
+            first_attempt = self.report_warnings(update_page, changes) if warned else changes
+            for t in [1.0, 1.5]:  # keystrokes are still timed
+                update_page.live_method(self.player, dict(field=fields[0], t=t))
+            yield update_page, dict(zip(fields, entries))
 
-        for year, (spend, change) in enumerate(zip(spending, changes), start=1):
-            expect(self.stored(f'{timing}_spend_y{year}'), spend)
-            expect(self.stored(f'{timing}_change_y{year}'), change)
-            expect(self.stored(f'{timing}_change_y{year}_initial'), first_attempt[year - 1])
-            expect(self.stored(f'{other_timing}_spend_y{year}'), None)  # the other scenario is not shown
-            expect(self.stored(f'{other_timing}_change_y{year}'), None)
-        expect(self.stored(f'{timing}_warned_low_total'), 3 if warned else 0)
-        if timing == 'future':
-            expect(self.stored('future_warned_low_before'), 1 if warned else 0)
-        expect(fields[0], 'in', self.stored('keylog_timing_tuples'))
-        self.check_projection(timing, p, spending, inheritance_age)
-        expect(self.stored(f'{other_timing}_bequest'), None)
-        if from_sheet:
-            result = (self.stored(f'{timing}_depletion_age'), self.stored(f'{timing}_bequest'))
-            expect(result, SHEET_RESULTS[entered][timing])
+            for year, (spend, change) in enumerate(zip(spending, changes), start=1):
+                expect(self.stored(f'{timing}_spend_y{year}'), spend)
+                expect(self.stored(f'{timing}_change_y{year}'), change)
+                expect(self.stored(f'{timing}_change_y{year}_initial'), first_attempt[year - 1])
+            expect(self.stored(f'{timing}_warned_low_total'), 3 if warned else 0)
+            if timing == 'future':
+                expect(self.stored('future_warned_low_before'), 1 if warned else 0)
+            expect(fields[0], 'in', self.stored('keylog_timing_tuples'))
+            self.check_projection(timing, p, spending, inheritance_age)
+            if from_sheet:
+                result = (self.stored(f'{timing}_depletion_age'), self.stored(f'{timing}_bequest'))
+                expect(result, SHEET_RESULTS[entered][timing])
 
         yield AttentionCheck1_AI, dict(can='red')
         yield AttentionCheck2_AI, dict(words='test')

@@ -1,7 +1,7 @@
 {{ extends "global/Page.html" }}
 
 {{ block title }}
-    <strong>The Scenario</strong>
+    <strong>Scenario {{ scenario_number }} (of 2)</strong>
 {{ endblock }}
 
 {{ block styles }}
@@ -12,7 +12,13 @@
     <input type="hidden" name="{{ warning_field }}" id="scenario_warning" value="0">
 
     <div style="font-size: 16px; margin-bottom: 15px;">
-        Now imagine that, right after you have made your financial plan, you are faced with the following scenario:
+        {{ if scenario_number == 1 }}
+            Now imagine that, right after you have made your financial plan, you are faced with the following scenario:
+        {{ else }}
+            Now please consider a <strong>different scenario</strong>.
+            Imagine that the previous scenario never happened, and that you are instead faced with the following scenario
+            right after you have made your initial financial plan:
+        {{ endif }}
     </div>
 
     <div class="plan-box plan-box-scenario">
