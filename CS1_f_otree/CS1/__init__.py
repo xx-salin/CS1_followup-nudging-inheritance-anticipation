@@ -583,9 +583,9 @@ def _plan_notes(p, depletion_age, bequest):
     else:
         used_up = f'{_plan_after_plan_text(p)}, your overall savings will be used up by age {depletion_age}.'
     if bequest < 0:
-        left = f'If you pass on at age {p["bequest_age"]}, you will not leave a bequest.'
+        left = f'If you pass on at age {p["bequest_age"]}, you will not leave an inheritance.'
     else:
-        left = f'If you pass on at age {p["bequest_age"]}, you will leave a bequest of {_money(bequest)}.'
+        left = f'If you pass on at age {p["bequest_age"]}, you will leave an inheritance of {_money(bequest)}.'
     return [used_up, left]
 
 

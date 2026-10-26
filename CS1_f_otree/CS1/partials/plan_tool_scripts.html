@@ -119,8 +119,8 @@
             ? `${cfg.after_plan_text}, your overall savings will never be used up.`
             : `${cfg.after_plan_text}, your overall savings will be used up by age ${result.depletionAge}.`;
         const left = result.bequest < 0
-            ? `If you pass on at age ${cfg.bequest_age}, you will not leave a bequest.`
-            : `If you pass on at age ${cfg.bequest_age}, you will leave a bequest of ${money(result.bequest)}.`;
+            ? `If you pass on at age ${cfg.bequest_age}, you will not leave an inheritance.`
+            : `If you pass on at age ${cfg.bequest_age}, you will leave an inheritance of ${money(result.bequest)}.`;
         return [usedUp, left];
     }
 
