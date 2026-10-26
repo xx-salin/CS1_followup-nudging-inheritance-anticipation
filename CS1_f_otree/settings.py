@@ -28,7 +28,7 @@ SESSION_CONFIGS = [
         'interest_rate': 0.03,  # yearly interest on savings (0.03 = 3%)
         'growth_rate': 0.0,  # yearly growth of spending and pension after the last plan year (0 = constant)
         'inheritance': 50000,
-        'current_age': 62,
+        'current_age': 63,  # age the participant has just turned; the plan covers this year of life and the next 7
         'retirement_age': 67,  # first age at which income = pension
         'inheritance_delay_years': 2,  # future scenario: years between the first plan year and the inheritance
         'bequest_age': 90,

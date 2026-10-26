@@ -9,7 +9,7 @@ from urllib.request import urlopen
 doc = """
 Follow-up to CS1: does the way spending reactions are elicited change the reaction to an inheritance?
 
-Participants take the role of a 62-year-old planning for retirement and fill out a spending plan in a
+Participants take the role of someone who has just turned 63 and plans for retirement and fill out a spending plan in a
 lifecycle planning tool (see ToyLifecycleTool.xlsx). They then face two scenarios in random order
 (within-subject) in which they inherit a one-time payment either today or in the future, and update
 their plan in one of three layouts (between-subject, named after the sheets of the tool):
@@ -385,7 +385,7 @@ PLAN_PARAM_DEFAULTS = dict(
     interest_rate=0.03,
     growth_rate=0.0,  # yearly growth of spending and pension after the last plan year (0 = constant)
     inheritance=50000,
-    current_age=62,
+    current_age=63,  # age the participant has just turned: the first plan year
     retirement_age=67,  # first age at which income = pension
     inheritance_delay_years=2,  # future scenario: years between the first plan year and the inheritance
     bequest_age=90,
@@ -415,8 +415,8 @@ def _money(value):
 def _plan_params_from_config(config):
     defaults = {**PLAN_PARAM_DEFAULTS, **PLAN_WARNING_DEFAULTS}
     p = {key: config.get(key, default) for key, default in defaults.items()}
-    p['first_age'] = p['current_age'] + 1
-    p['last_age'] = p['current_age'] + C.PLAN_YEARS
+    p['first_age'] = p['current_age']
+    p['last_age'] = p['current_age'] + C.PLAN_YEARS - 1
     return p
 
 
