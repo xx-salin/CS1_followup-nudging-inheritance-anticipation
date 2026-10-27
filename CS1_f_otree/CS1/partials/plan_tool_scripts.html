@@ -50,8 +50,8 @@
         return firstPayment * (1 - Math.pow(ratio, count)) / (interestRate - growthRate);
     }
 
-    // Number of years after the last plan year for which the savings cover the yearly withdrawal
-    // (spending minus pension, growing by growth_rate); null if they cover it forever
+    // Number of years after the last plan year at whose end savings are still left, with a yearly
+    // withdrawal of spending minus pension that grows by growth_rate; null if they are never used up
     function yearsSavingsLast(savings, withdrawal) {
         const interest = cfg.interest_rate, growth = cfg.growth_rate;
 
@@ -71,10 +71,11 @@
 
         // rounding can move the result across a whole number of years
         const savingsLeft = function (afterYears) {
-            return savings - growingAnnuityValue(withdrawal, interest, growth, afterYears);
+            return (savings - growingAnnuityValue(withdrawal, interest, growth, afterYears)) *
+                Math.pow(1 + interest, afterYears);
         };
-        while (count > 0 && savingsLeft(count) < -cfg.tolerance) count--;
-        while (savingsLeft(count + 1) >= -cfg.tolerance) count++;
+        while (count > 0 && savingsLeft(count) < cfg.used_up_below) count--;
+        while (savingsLeft(count + 1) >= cfg.used_up_below) count++;
         return count;
     }
 
@@ -84,7 +85,7 @@
         const lastAge = cfg.ages[years - 1];
         const rows = [];
         let total = cfg.initial_wealth;
-        let firstNegativeAge = null;
+        let usedUpAge = null;
         for (let year = 0; year < years; year++) {
             const age = cfg.ages[year];
             const income = age >= cfg.retirement_age ? cfg.pension : cfg.salary;
@@ -92,18 +93,19 @@
             const saving = income - spend[year] + inheritance;
             total = year === 0 ? total + saving : total * (1 + interest) + saving;
             rows.push({age: age, saving: saving, total: total});
-            if (total < 0 && firstNegativeAge === null) firstNegativeAge = age;
+            if (total < cfg.used_up_below && usedUpAge === null) usedUpAge = age;
         }
 
         // first withdrawal after the plan: what spending exceeds the pension by
         const withdrawal = (spend[years - 1] - cfg.pension) * (1 + growth);
 
         let depletionAge;
-        if (firstNegativeAge !== null) {
-            depletionAge = firstNegativeAge - 1;
+        // the age in which savings are used up
+        if (usedUpAge !== null) {
+            depletionAge = usedUpAge;
         } else {
             const lasting = yearsSavingsLast(total, withdrawal);
-            depletionAge = lasting === null ? null : lastAge + lasting;
+            depletionAge = lasting === null ? null : lastAge + lasting + 1;
         }
 
         const yearsAfterPlan = cfg.bequest_age - lastAge;
@@ -119,7 +121,7 @@
             ? {main: `${cfg.after_plan_text}, your overall savings will never be used up.`, detail: ''}
             : {main: `${cfg.after_plan_text}, your overall savings will be used up by age ${result.depletionAge}.`,
                detail: cfg.depleted_text};
-        const left = result.bequest < 0
+        const left = result.bequest < cfg.used_up_below
             ? `If you pass on at age ${cfg.bequest_age}, you will not leave an inheritance.`
             : `If you pass on at age ${cfg.bequest_age}, you will leave an inheritance of ${money(result.bequest)}.`;
         return [usedUp, {main: left, detail: ''}];
@@ -309,8 +311,10 @@
             if (cfg.mode === 'level') drawChart(preview);
         }
 
-        // the graph of the entered changes is also shown without the planning tool
-        if (cfg.mode === 'change') drawChart(inputs.map(function (_, year) { return entry(year) || 0; }));
+        // the graph of the entries (changes, or updated spending without the tool) only shows what is typed
+        if (cfg.mode === 'change' || !cfg.dynamic) {
+            drawChart(inputs.map(function (_, year) { return entry(year) || 0; }));
+        }
 
         // Before the first attempt to continue, only complete but infeasible plans are flagged
         const complete = inputs.every(function (_, year) { return entry(year) !== null; });

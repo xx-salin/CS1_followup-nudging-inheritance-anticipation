@@ -20,7 +20,7 @@ PERSONAS
   C  — spends less    : lower spending in some years, blank parents →
                          skips the Inh_Followup chain
 
-Needs 12 participant slots (one per treatment cell).
+Needs 16 participant slots (one per treatment cell).
 
 NOTES
 -----
@@ -65,7 +65,7 @@ ACTIVE_PERSONA = "C"   # "A", "B", or "C"
 # ---------------------------------------------------------------------------
 BASE_URL   = "http://127.0.0.1:8000/"
 APP_NAME   = "CS1"
-NUM_TREATMENTS = 12          # always 12 for CS1
+NUM_TREATMENTS = 16          # always 16 for CS1
 MAX_STEPS  = 500
 OUT_DIR    = "screenshots"
 HEADED     = True            # False = headless
@@ -80,13 +80,13 @@ CAPTURE_ONCE_LABELS = {
 
 # ---------------------------------------------------------------------------
 # Treatment cells (must match creating_session order in __init__.py)
-# layout x order of the scenarios x framing of the own-inheritance follow-up
+# layout (2 x 2) x order of the scenarios x framing of the own-inheritance follow-up
 # ---------------------------------------------------------------------------
 GROUPS = [
     f"{layout}_{round_order}_{frame}"
     for frame in ["spendframe", "saveframe"]
     for round_order in ["present_first", "future_first"]
-    for layout in ["natural_2", "natural_1", "reframed"]
+    for layout in ["natural_2", "reframed_2", "natural_1", "reframed"]
 ]
 
 PLAN_YEARS = range(1, 9)
@@ -101,7 +101,7 @@ def _plan_values(prefix, amounts):
 
 def _reaction_values(present_changes, future_changes):
     """Entries for the Plan_Update pages: the natural layouts show the *_change_*
-    inputs, the reframed layout the *_spend_* inputs."""
+    inputs, the reframed layouts the *_spend_* inputs."""
     values = {}
     for timing, changes in [("present", present_changes), ("future", future_changes)]:
         values.update(_plan_values(f"{timing}_change", changes))
@@ -113,7 +113,7 @@ def _reaction_values(present_changes, future_changes):
 def plan_values_for_page(page, number_values):
     """Spending entries that follow the plan a planning-tool page is based on (its js_vars), so
     that the script works whatever the tool parameters in settings.py are (retirement age etc.):
-    the baseline gets the plan of the page's "Skip for testing" button, and the reframed layout
+    the baseline gets the plan of the page's "Skip for testing" button, and the reframed layouts
     the persona's change in spending added to the participant's initial plan."""
     cfg = page.evaluate("() => (typeof js_vars === 'undefined' ? null : js_vars)")
     if not cfg or not cfg.get("fields"):

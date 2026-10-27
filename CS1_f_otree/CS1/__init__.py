@@ -12,10 +12,12 @@ Follow-up to CS1: does the way spending reactions are elicited change the reacti
 Participants take the role of someone who has just turned 63 and plans for retirement and fill out a spending plan in a
 lifecycle planning tool (see ToyLifecycleTool.xlsx). They then face two scenarios in random order
 (within-subject) in which they inherit a one-time payment either today or in the future, and update
-their plan in one of three layouts (between-subject, named after the sheets of the tool):
-    natural_2: enter the change in spending per year; the initial plan is shown as a static reminder
-    natural_1: enter the change in spending per year; the tool and a graph update dynamically
-    reframed:  enter the updated spending per year; the tool and a graph update dynamically
+their plan in one of four layouts (between-subject, 2 x 2: what is entered x planning tool or not):
+    natural_2:  enter the change in spending per year; no tool (a graph of the entries, the initial spending as a reminder)
+    reframed_2: enter the updated spending per year; no tool (as natural_2)
+    natural_1:  enter the change in spending per year; the tool (table and info box) and a graph update dynamically
+    reframed:   enter the updated spending per year; the tool and a graph update dynamically
+(natural_1, natural_2 and reframed are named after the sheets of the tool.)
 In every layout all years have to be filled in actively, and a plan that hardly reacts to the scenario
 leads to a warning that the participant can follow or ignore (see PLAN_WARNING_DEFAULTS).
 The concluding survey covers demographics and the participant's own expected parental inheritance.
@@ -28,7 +30,9 @@ class C(BaseConstants):
     NUM_ROUNDS = 1
     KEYLOG_EVENT_CAP = 2000
     PLAN_YEARS = 8  # years for which spending is planned
-    LAYOUTS = ['natural_2', 'natural_1', 'reframed']
+    LAYOUTS = ['natural_2', 'reframed_2', 'natural_1', 'reframed']
+    LEVEL_LAYOUTS = ['reframed_2', 'reframed']  # the updated spending is entered, not the change in spending
+    TOOL_LAYOUTS = ['natural_1', 'reframed']  # the planning tool updates with the entries
     ROUND_ORDERS = ['present_first', 'future_first']
     CURRENCIES = {'AUD': 'A$', 'GBP': '£', 'EUR': '€', 'USD': '$'}
     COMPLICATED_WORDS = ['Schadenfreude', 'Bourgeoisie', 'Worcestershire']
@@ -50,7 +54,9 @@ class Group(BaseGroup):
 class Player(BasePlayer):
     # CREATING SESSION -
     prolific_id = models.StringField(blank=True, label='Your Prolific ID')
-    layout = models.StringField()  # natural_2 = change in spending, natural_1 = change in spending + dynamic tool, reframed = updated spending + dynamic tool
+    layout = models.StringField()  # see doc: natural_2 / reframed_2 / natural_1 / reframed
+    entry_frame = models.StringField()  # the two dimensions of the layout: change / level (what is entered)
+    tool = models.BooleanField()  # and whether the planning tool updates with the entries
     round_order = models.StringField()  # present_first / future_first
     mother_father = models.IntegerField(initial=0)  # mother = 1, father = 2
     inh_followup_frame = models.IntegerField()  # spending frame = 1, saving frame = 2
@@ -93,7 +99,7 @@ class Player(BasePlayer):
     # ---------------------------------------- LIFECYCLE PLANNING TOOL -------------------------------------------
     # ------------------------------------------------------------------------------------------------------------
     # y1..y8 are the plan years (ages 63 to 70 with the default parameters).
-    # depletion_age = last age with non-negative total savings (empty if the savings are never used up)
+    # depletion_age = age in which total savings are used up, i.e. fall below £0.50 (empty if never)
     # bequest = total savings left at the bequest age
 
     # Plan_Baseline: initial spending plan
@@ -109,7 +115,7 @@ class Player(BasePlayer):
     base_bequest = models.FloatField(blank=True)
 
     # Plan_Scenario / Plan_Update with the inheritance today.
-    # The natural layouts ask for the change in spending, the reframed layout for the updated spending;
+    # The natural layouts ask for the change in spending, the reframed layouts for the updated spending;
     # the one that was not asked is derived (spend = base_spend + change).
     # min=None: changes can be negative (oTree's default minimum for numbers is 0).
     present_scenario_warning = models.IntegerField(initial=0)  # 1 = pressed Next within 10 seconds, 0 = waited 10 seconds
@@ -419,6 +425,7 @@ PLAN_WARNING_DEFAULTS = dict(
 PLAN_WARNING_KINDS = dict(present=['low_total'], future=['low_total', 'low_before'])
 PLAN_YEAR_NUMBERS = range(1, C.PLAN_YEARS + 1)
 PLAN_TOLERANCE = 1e-6  # savings this close to zero count as zero (rounding in the formulas)
+PLAN_USED_UP_BELOW = 0.5  # savings shown as £0 count as used up (age of depletion, no inheritance left)
 PLAN_RATE_TOLERANCE = 1e-9  # interest and growth rates this close count as equal
 PLAN_MAX_AMOUNT = 10 ** 9  # larger amounts reported by a page are not stored
 
@@ -477,6 +484,16 @@ def _plan_inheritance_age(p, timing):
     return None
 
 
+def _plan_level(player: Player):
+    """The updated spending is entered (level frame), not the change in spending."""
+    return player.layout in C.LEVEL_LAYOUTS
+
+
+def _plan_tool(player: Player):
+    """The planning tool (table and info box) updates with the entries."""
+    return player.layout in C.TOOL_LAYOUTS
+
+
 def _plan_scenario_timing(player: Player, scenario_number):
     timings = ['present', 'future'] if player.round_order == 'present_first' else ['future', 'present']
     return timings[scenario_number - 1]
@@ -518,8 +535,8 @@ def _growing_annuity_value(first_payment, interest_rate, growth_rate, years):
 
 
 def _plan_years_savings_last(p, savings, withdrawal):
-    """Number of years after the last plan year for which the savings cover the yearly withdrawal
-    (spending minus pension, growing by growth_rate); None if they cover it forever."""
+    """Number of years after the last plan year at whose end savings are still left, with a yearly
+    withdrawal of spending minus pension that grows by growth_rate; None if they are never used up."""
     interest, growth = p['interest_rate'], p['growth_rate']
 
     # Growing perpetuity: the savings are never used up if they are worth at least all future withdrawals
@@ -535,11 +552,12 @@ def _plan_years_savings_last(p, savings, withdrawal):
 
     # rounding can move the result across a whole number of years
     def savings_left(after_years):
-        return savings - _growing_annuity_value(withdrawal, interest, growth, after_years)
+        return ((savings - _growing_annuity_value(withdrawal, interest, growth, after_years))
+                * (1 + interest) ** after_years)
 
-    while years > 0 and savings_left(years) < -PLAN_TOLERANCE:
+    while years > 0 and savings_left(years) < PLAN_USED_UP_BELOW:
         years -= 1
-    while savings_left(years + 1) >= -PLAN_TOLERANCE:
+    while savings_left(years + 1) >= PLAN_USED_UP_BELOW:
         years += 1
     return years
 
@@ -550,8 +568,8 @@ def _plan_project(p, spending, inheritance_age=None):
     The plan years are calculated year by year, as in ToyLifecycleTool.xlsx. For the years after the
     plan, spending and pension both grow by growth_rate a year (0 = they stay constant), so the yearly
     withdrawal from savings is a growing annuity and no year-by-year table is needed. Returns the rows
-    of the plan years, the last age at which total savings are still non-negative (None if they are
-    never used up) and the total savings at the bequest age.
+    of the plan years, the age in which total savings are used up (None if never) and the total
+    savings at the bequest age.
     """
     interest, growth = p['interest_rate'], p['growth_rate']
     rows = []
@@ -567,12 +585,12 @@ def _plan_project(p, spending, inheritance_age=None):
     # first withdrawal after the plan: what spending exceeds the pension by
     withdrawal = (spending[-1] - p['pension']) * (1 + growth)
 
-    first_negative_age = next((row['age'] for row in rows if row['total'] < 0), None)
-    if first_negative_age is not None:
-        depletion_age = first_negative_age - 1
+    used_up_age = next((row['age'] for row in rows if row['total'] < PLAN_USED_UP_BELOW), None)
+    if used_up_age is not None:
+        depletion_age = used_up_age
     else:
         years = _plan_years_savings_last(p, total, withdrawal)
-        depletion_age = None if years is None else p['last_age'] + years
+        depletion_age = None if years is None else p['last_age'] + years + 1
 
     years_after_plan = p['bequest_age'] - p['last_age']
     if years_after_plan > 0:
@@ -612,7 +630,7 @@ def _plan_notes(p, depletion_age, bequest):
         used_up = dict(
             main=f'{_plan_after_plan_text(p)}, your overall savings will be used up by age {depletion_age}.',
             detail=_plan_depleted_text(p))
-    if bequest < 0:
+    if bequest < PLAN_USED_UP_BELOW:
         left = f'If you pass on at age {p["bequest_age"]}, you will not leave an inheritance.'
     else:
         left = f'If you pass on at age {p["bequest_age"]}, you will leave an inheritance of {_money(bequest)}.'
@@ -694,7 +712,7 @@ def _plan_vars(player: Player, timing=None):
         years.append(row)
 
     # smallest range of the vertical axis of the graph, so that it does not rescale with every keystroke
-    if player.layout == 'reframed' and has_base:
+    if _plan_level(player) and has_base:
         chart_min_scale = max(base_spending)
     else:
         chart_min_scale = p['inheritance'] / 5
@@ -703,6 +721,8 @@ def _plan_vars(player: Player, timing=None):
     return dict(
         testing=player.session.config['testing'],
         layout=player.layout,
+        level=_plan_level(player),
+        tool=_plan_tool(player),
         years=years,
         plan_years=C.PLAN_YEARS,
         work_years=work_years,
@@ -730,7 +750,7 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
     p = _plan_params(player)
     return dict(
         mode=mode,
-        dynamic=mode == 'baseline' or player.layout != 'natural_2',
+        dynamic=mode == 'baseline' or _plan_tool(player),
         fields=fields,
         ages=_plan_ages(p),
         base_spend=_plan_base_spending(player) if mode != 'baseline' else [],
@@ -750,6 +770,7 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
         warning_low_total=_plan_warning_amount(p, 'warning_low_total_share'),
         warning_low_before=_plan_warning_amount(p, 'warning_low_before_share'),
         tolerance=PLAN_TOLERANCE,
+        used_up_below=PLAN_USED_UP_BELOW,
         rate_tolerance=PLAN_RATE_TOLERANCE,
         currency=C.DEFAULT_CURRENCY_SYMBOL,
     )
@@ -833,12 +854,12 @@ def _plan_comp_error(player: Player, values, scenario_number):
 
 def _plan_update_fields(player: Player, scenario_number):
     timing = _plan_scenario_timing(player, scenario_number)
-    entered = 'spend' if player.layout == 'reframed' else 'change'
+    entered = 'spend' if _plan_level(player) else 'change'
     return [f'{timing}_{entered}_y{i}' for i in PLAN_YEAR_NUMBERS]
 
 
 def _plan_update_js_vars(player: Player, scenario_number):
-    mode = 'level' if player.layout == 'reframed' else 'change'
+    mode = 'level' if _plan_level(player) else 'change'
     return _plan_js_vars(
         player, mode, _plan_update_fields(player, scenario_number),
         _plan_scenario_timing(player, scenario_number),
@@ -849,7 +870,7 @@ def _plan_update_error(player: Player, values, scenario_number):
     p = _plan_params(player)
     inheritance_age = _plan_inheritance_age(p, _plan_scenario_timing(player, scenario_number))
     entries = [values.get(field) for field in _plan_update_fields(player, scenario_number)]
-    if player.layout == 'reframed':
+    if _plan_level(player):
         return _plan_error(p, entries, inheritance_age)
 
     base_spending = _plan_base_spending(player)
@@ -890,7 +911,7 @@ def _plan_update_store(player: Player, scenario_number):
     timing = _plan_scenario_timing(player, scenario_number)
     spending = []
     for i, base in zip(PLAN_YEAR_NUMBERS, _plan_base_spending(player)):
-        if player.layout == 'reframed':
+        if _plan_level(player):
             spend = getattr(player, f'{timing}_spend_y{i}')
             setattr(player, f'{timing}_change_y{i}', spend - base)
         else:
@@ -920,8 +941,8 @@ def creating_session(subsession: Subsession):
     if subsession.round_number == 1:
         _plan_check_params(_plan_params_from_config(subsession.session.config))
 
-        # Between-subject cells: input layout x order of the two scenarios x framing of the own-inheritance follow-up.
-        # The layout changes fastest, so that small sessions are balanced on it first.
+        # Between-subject cells: layout (2 x 2) x order of the two scenarios x framing of the own-inheritance
+        # follow-up. The layout changes fastest, so that every 8 participants cover layout x order once.
         cells = [
             (layout, round_order, frame)
             for frame in [1, 2]
@@ -931,6 +952,8 @@ def creating_session(subsession: Subsession):
 
         for i, player in enumerate(subsession.get_players()):
             player.layout, player.round_order, player.inh_followup_frame = cells[i % len(cells)]
+            player.entry_frame = 'level' if _plan_level(player) else 'change'
+            player.tool = _plan_tool(player)
             player.mother_father = random.randint(1, 2)
 
 

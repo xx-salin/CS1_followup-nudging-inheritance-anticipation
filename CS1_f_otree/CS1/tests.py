@@ -2,12 +2,12 @@ from otree.api import Bot, Submission, SubmissionMustFail, expect
 
 from . import *
 from . import (
-    _plan_example_spending, _plan_income, _plan_inheritance_age, _plan_params, _plan_scenario_timing,
+    _plan_error, _plan_project, _plan_example_spending, _plan_income, _plan_inheritance_age, _plan_params, _plan_scenario_timing,
     _plan_update_fields,
 )
 
-# Run with:  otree test CS1 12
-# 12 participants cover every cell of layout x scenario order x follow-up framing.
+# Run with:  otree test CS1 16
+# 16 participants cover every cell of layout (2 x 2) x scenario order x follow-up framing.
 #
 # The projections stored by the planning tool (formulas) are compared with a plain year-by-year
 # calculation, whatever the tool parameters in settings.py are. With the default parameters, the
@@ -18,11 +18,11 @@ SHEET_CHANGES = dict(  # sheets "Natural_1" and "Natural_2"
     present=[30000, 10000, 5000, 5000, 0, 0, 0, 0],
     future=[2500, 2500, 25000, 10000, 5000, 5000, 0, 0],
 )
-# (depletion age, bequest)
-SHEET_BASE_RESULT = (93, 27896.49)
+# (depletion age = age in which savings are used up, bequest); the sheet's notes give the age before
+SHEET_BASE_RESULT = (94, 27896.49)
 SHEET_RESULTS = dict(
-    spend=dict(present=(93, 36090.19), future=(93, 29714.64)),
-    change=dict(present=(94, 30123.50), future=(94, 29519.85)),
+    spend=dict(present=(94, 36090.19), future=(94, 29714.64)),
+    change=dict(present=(95, 30123.50), future=(95, 29519.85)),
 )
 
 
@@ -37,13 +37,33 @@ def year_by_year(p, spending, inheritance_age=None):
         else:
             saving = (p['pension'] - spending[-1]) * (1 + p['growth_rate']) ** (age - p['last_age'])
         total = total + saving if year == 0 else total * (1 + p['interest_rate']) + saving
-        if total < -1e-6 and depletion_age is None:
-            depletion_age = age - 1
+        if total < PLAN_USED_UP_BELOW and depletion_age is None:
+            depletion_age = age
         if age == p['bequest_age']:
             bequest = total
         if depletion_age is not None and bequest is not None:
             break
     return depletion_age, bequest
+
+
+def check_depletion_examples(p, base):
+    """The age in which savings are used up agrees with the error message and the inheritance note."""
+    ages = list(range(p['first_age'], p['last_age'] + 1))
+    # spending too much in one plan year: the error and the note name the same age
+    for year in [2, C.PLAN_YEARS - 1]:
+        spending = list(base)
+        spending[year] = p['initial_wealth'] * 2 + p['salary']
+        rows, depletion_age, _ = _plan_project(p, spending)
+        expect(depletion_age, ages[year])
+        expect(f'used up at age {ages[year]}', 'in', _plan_error(p, spending))
+    # all savings spent by the last plan year: used up in that year
+    rows, _, _ = _plan_project(p, base)
+    spending = base[:-1] + [base[-1] + round(rows[-1]['total'])]
+    expect(_plan_project(p, spending)[1], p['last_age'])
+    # savings used up by the bequest age exactly when no inheritance is left at that age
+    for last in range(p['pension'], p['pension'] + 40000, 50):
+        _, depletion_age, bequest = _plan_project(p, base[:-1] + [last])
+        expect(depletion_age is not None and depletion_age <= p['bequest_age'], bequest < PLAN_USED_UP_BELOW)
 
 
 class PlayerBot(Bot):
@@ -76,6 +96,8 @@ class PlayerBot(Bot):
 
     def play_round(self):
         expect(self.player.layout, 'in', C.LAYOUTS)
+        level, tool = self.player.layout in C.LEVEL_LAYOUTS, self.player.layout in C.TOOL_LAYOUTS
+        expect((self.player.entry_frame, self.player.tool), ('level' if level else 'change', tool))
         expect(self.player.round_order, 'in', C.ROUND_ORDERS)
         p = _plan_params(self.player)
         sheet_parameters = all(p[name] == value for name, value in PLAN_PARAM_DEFAULTS.items())
@@ -96,10 +118,11 @@ class PlayerBot(Bot):
         yield SubmissionMustFail(Plan_Baseline, dict(zip(base_fields, [beyond_means] + base[1:])))  # savings used up
         yield Plan_Baseline, dict(zip(base_fields, base))
         self.check_projection('base', p, base)
+        check_depletion_examples(p, base)
         if sheet_parameters:
             expect((self.stored('base_depletion_age'), self.stored('base_bequest')), SHEET_BASE_RESULT)
 
-        entered = 'spend' if self.player.layout == 'reframed' else 'change'
+        entered = 'spend' if level else 'change'
         update_pages = [(Plan_Scenario_1, Plan_Update_1), (Plan_Scenario_2, Plan_Update_2)]
         for scenario_number, (scenario_page, update_page) in enumerate(update_pages, start=1):
             timing = _plan_scenario_timing(self.player, scenario_number)
@@ -124,6 +147,11 @@ class PlayerBot(Bot):
             expect(self.stored(f'{timing}_comp_wrong_history'), '1,2')
             for field, answer in correct.items():
                 expect(self.stored(field), answer)
+
+            # without the tool: only the initial spending as a reminder, no savings and no info box
+            expect('Total savings' in self.html, tool)
+            expect('Reminder: Initial Financial Plan' in self.html, not tool)
+            expect('id="plan-notes"' in self.html, tool)  # the info box
 
             from_sheet = sheet_parameters and self.case == 'sheet_entries'
             if from_sheet and entered == 'spend':
