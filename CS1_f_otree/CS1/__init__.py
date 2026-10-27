@@ -113,6 +113,16 @@ class Player(BasePlayer):
     # the one that was not asked is derived (spend = base_spend + change).
     # min=None: changes can be negative (oTree's default minimum for numbers is 0).
     present_scenario_warning = models.IntegerField(initial=0)  # 1 = pressed Next within 10 seconds, 0 = waited 10 seconds
+    # Plan_Comprehension: the comprehension test of experiment 1 (choices in present_comp_q*_choices)
+    # comp_failed_attempts = submissions with a wrong answer; comp_wrong_history = the wrong questions of
+    # each of these submissions, e.g. '1,3;1'
+    present_comp_q1_timing = models.IntegerField(label='When is the payment made?', widget=widgets.RadioSelect)
+    present_comp_q2_amount = models.IntegerField(label='How large is the payment?', widget=widgets.RadioSelect)
+    present_comp_q3_reason = models.IntegerField(
+        label='Why are you receiving the payment?', choices=[[1, 'Salary'], [2, 'Inheritance'], [3, 'Tax refund']],
+        widget=widgets.RadioSelect)
+    present_comp_failed_attempts = models.IntegerField(initial=0)
+    present_comp_wrong_history = models.LongStringField(initial='')
     present_change_y1 = models.IntegerField(blank=True, min=None)
     present_change_y2 = models.IntegerField(blank=True, min=None)
     present_change_y3 = models.IntegerField(blank=True, min=None)
@@ -147,6 +157,13 @@ class Player(BasePlayer):
 
     # Plan_Scenario / Plan_Update with the inheritance in the future
     future_scenario_warning = models.IntegerField(initial=0)  # 1 = pressed Next within 10 seconds, 0 = waited 10 seconds
+    future_comp_q1_timing = models.IntegerField(label='When is the payment made?', widget=widgets.RadioSelect)
+    future_comp_q2_amount = models.IntegerField(label='How large is the payment?', widget=widgets.RadioSelect)
+    future_comp_q3_reason = models.IntegerField(
+        label='Why are you receiving the payment?', choices=[[1, 'Salary'], [2, 'Inheritance'], [3, 'Tax refund']],
+        widget=widgets.RadioSelect)
+    future_comp_failed_attempts = models.IntegerField(initial=0)
+    future_comp_wrong_history = models.LongStringField(initial='')
     future_change_y1 = models.IntegerField(blank=True, min=None)
     future_change_y2 = models.IntegerField(blank=True, min=None)
     future_change_y3 = models.IntegerField(blank=True, min=None)
@@ -749,6 +766,71 @@ def _plan_scenario_vars(player: Player, scenario_number):
     return context
 
 
+# Comprehension test after each scenario, as in experiment 1 ("In 2 years" / "In 4 years" with the default delay)
+PLAN_COMP_QUESTIONS = ['q1_timing', 'q2_amount', 'q3_reason']
+
+
+def _plan_comp_timing_choices(player: Player):
+    delay = _plan_params(player)['inheritance_delay_years']
+    years = lambda n: '1 year' if n == 1 else f'{n} years'
+    return [[1, 'Today'], [2, f'In {years(delay)}'], [3, f'In {years(2 * delay)}']]
+
+
+def _plan_comp_amount_choices(player: Player):
+    inheritance = _plan_params(player)['inheritance']
+    return [[1, _money(inheritance / 10)], [2, _money(inheritance / 2)], [3, _money(inheritance)]]
+
+
+def present_comp_q1_timing_choices(player: Player):
+    return _plan_comp_timing_choices(player)
+
+
+def future_comp_q1_timing_choices(player: Player):
+    return _plan_comp_timing_choices(player)
+
+
+def present_comp_q2_amount_choices(player: Player):
+    return _plan_comp_amount_choices(player)
+
+
+def future_comp_q2_amount_choices(player: Player):
+    return _plan_comp_amount_choices(player)
+
+
+def _plan_comp_answers(player: Player, scenario_number):
+    """Correct answer of each question, by form field."""
+    timing = _plan_scenario_timing(player, scenario_number)
+    answers = dict(q1_timing=1 if timing == 'present' else 2, q2_amount=3, q3_reason=2)
+    return {f'{timing}_comp_{question}': answers[question] for question in PLAN_COMP_QUESTIONS}
+
+
+def _plan_comp_vars(player: Player, scenario_number):
+    timing = _plan_scenario_timing(player, scenario_number)
+    context = _plan_scenario_vars(player, scenario_number)
+    context.update(
+        # the scenario is shown again after a wrong answer
+        show_reminder=getattr(player, f'{timing}_comp_failed_attempts') > 0,
+        answers=_plan_comp_answers(player, scenario_number),
+    )
+    return context
+
+
+def _plan_comp_error(player: Player, values, scenario_number):
+    """Wrong answers are not accepted; each submission with a wrong answer is recorded."""
+    timing = _plan_scenario_timing(player, scenario_number)
+    answers = _plan_comp_answers(player, scenario_number)
+    wrong = [field for field, answer in answers.items() if values.get(field) != answer]
+    if not wrong:
+        return None
+
+    attempts_field, history_field = f'{timing}_comp_failed_attempts', f'{timing}_comp_wrong_history'
+    setattr(player, attempts_field, getattr(player, attempts_field) + 1)
+    numbers = ','.join(str(list(answers).index(field) + 1) for field in wrong)
+    history = getattr(player, history_field)
+    setattr(player, history_field, f'{history};{numbers}' if history else numbers)
+    return {field: 'Please review the scenario and update this response.' for field in wrong}
+
+
 def _plan_update_fields(player: Player, scenario_number):
     timing = _plan_scenario_timing(player, scenario_number)
     entered = 'spend' if player.layout == 'reframed' else 'change'
@@ -1091,6 +1173,23 @@ class Plan_Scenario_1(Page):
         return _plan_scenario_vars(player, 1)
 
 
+class Plan_Comprehension_1(Page):
+    template_name = 'CS1/Plan_Comprehension.html'
+    form_model = 'player'
+
+    @staticmethod
+    def get_form_fields(player: Player):
+        return list(_plan_comp_answers(player, 1))
+
+    @staticmethod
+    def vars_for_template(player: Player):
+        return _plan_comp_vars(player, 1)
+
+    @staticmethod
+    def error_message(player: Player, values):
+        return _plan_comp_error(player, values, 1)
+
+
 class Plan_Update_1(Page):
     template_name = 'CS1/Plan_Update.html'
     form_model = 'player'
@@ -1131,6 +1230,23 @@ class Plan_Scenario_2(Page):
     @staticmethod
     def vars_for_template(player: Player):
         return _plan_scenario_vars(player, 2)
+
+
+class Plan_Comprehension_2(Page):
+    template_name = 'CS1/Plan_Comprehension.html'
+    form_model = 'player'
+
+    @staticmethod
+    def get_form_fields(player: Player):
+        return list(_plan_comp_answers(player, 2))
+
+    @staticmethod
+    def vars_for_template(player: Player):
+        return _plan_comp_vars(player, 2)
+
+    @staticmethod
+    def error_message(player: Player, values):
+        return _plan_comp_error(player, values, 2)
 
 
 class Plan_Update_2(Page):
@@ -1398,8 +1514,8 @@ page_sequence = [
 
     Plan_Intro, Plan_Baseline,
 
-    Plan_Scenario_1, Plan_Update_1,
-    Plan_Scenario_2, Plan_Update_2,
+    Plan_Scenario_1, Plan_Comprehension_1, Plan_Update_1,
+    Plan_Scenario_2, Plan_Comprehension_2, Plan_Update_2,
 
     AttentionCheck1_AI, AttentionCheck2_AI, BotScreening,
 

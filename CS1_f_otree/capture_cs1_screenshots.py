@@ -162,6 +162,13 @@ NUMBER_VALUES_BASE = {
 RADIO_VALUES_BASE = {
     "lines":    "1",
     "cafewall": "2",
+    # Plan_Comprehension (correct answers: today / in 2 years, the full amount, inheritance)
+    "present_comp_q1_timing": "1",
+    "future_comp_q1_timing":  "2",
+    "present_comp_q2_amount": "3",
+    "future_comp_q2_amount":  "3",
+    "present_comp_q3_reason": "2",
+    "future_comp_q3_reason":  "2",
     # Demographics_1
     "Demographics_Sex":      "1",
     "Demographics_Education":"3",

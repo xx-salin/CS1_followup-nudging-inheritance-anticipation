@@ -112,6 +112,19 @@ class PlayerBot(Bot):
             yield Submission(scenario_page, {f'{timing}_scenario_warning': 0}, check_html=False)
             expect(inheritance_today, timing == 'present')
 
+            # comprehension test: wrong timing and amount first, then the correct answers
+            comp_page = Plan_Comprehension_1 if scenario_number == 1 else Plan_Comprehension_2
+            correct = {f'{timing}_comp_q1_timing': 1 if timing == 'present' else 2,
+                       f'{timing}_comp_q2_amount': 3, f'{timing}_comp_q3_reason': 2}
+            expect('Reminder about the scenario', 'not in', self.html)
+            yield SubmissionMustFail(comp_page, {**correct, f'{timing}_comp_q1_timing': 3, f'{timing}_comp_q2_amount': 1})
+            expect('Reminder about the scenario', 'in', self.html)
+            yield comp_page, correct
+            expect(self.stored(f'{timing}_comp_failed_attempts'), 1)
+            expect(self.stored(f'{timing}_comp_wrong_history'), '1,2')
+            for field, answer in correct.items():
+                expect(self.stored(field), answer)
+
             from_sheet = sheet_parameters and self.case == 'sheet_entries'
             if from_sheet and entered == 'spend':
                 spending = SHEET_UPDATED_SPENDING

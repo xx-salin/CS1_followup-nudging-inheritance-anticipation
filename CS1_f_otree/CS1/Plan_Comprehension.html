@@ -1,0 +1,72 @@
+{{ extends "global/Page.html" }}
+
+{{ block title }}
+    Comprehension Test
+{{ endblock }}
+
+{{ block styles }}
+    {{ include "CS1/partials/plan_tool_styles.html" }}
+    <style>
+        .question-section {
+            margin-top: 18px;
+            margin-bottom: 20px;
+        }
+
+        .question-block {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border: 1px solid #e2e6ea;
+            border-radius: 6px;
+            background: #ffffff;
+        }
+    </style>
+{{ endblock }}
+
+{{ block content }}
+    <div style="margin-bottom: 14px;">
+        You just learned about a scenario that involves a one-time payment. Please show that you understand that scenario:
+    </div>
+
+    {{ if show_reminder }}
+        <div style="font-size: 18px; margin-top: 10px;">Reminder about the scenario:</div>
+        <div class="plan-box plan-box-scenario" style="margin-top: 10px;">
+            <strong>The Scenario</strong><br><br>
+            {{ scenario_text }}
+            <br><br>
+            Assume there is no uncertainty in the timing or amount of the payment.
+            {{ include "CS1/partials/plan_timeline.html" }}
+        </div>
+    {{ endif }}
+
+    <div class="question-section">
+        <strong>Please select the correct response for each question.</strong>
+        {{ for field in form }}
+            <div class="question-block">
+                {{ formfield field }}
+            </div>
+        {{ endfor }}
+    </div>
+
+    <div style="margin-top: 30px;">
+        {{ next_button }}
+    </div>
+
+    {{ if testing }}
+        <button id="skipBtn" class="btn btn-secondary px-3" type="button" onclick="skipPage()">
+            Skip for testing
+        </button>
+    {{ endif }}
+{{ endblock }}
+
+{{ block scripts }}
+    <script>
+        // correct answers
+        function skipPage() {
+            const answers = {{ answers|json }};
+            Object.keys(answers).forEach(function (name) {
+                document.querySelector(`input[name="${name}"][value="${answers[name]}"]`).checked = true;
+            });
+            document.getElementById('form').submit();
+        }
+    </script>
+{{ endblock }}
