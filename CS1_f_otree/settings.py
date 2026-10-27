@@ -32,10 +32,10 @@ SESSION_CONFIGS = [
         'retirement_age': 67,  # first age at which income = pension
         'inheritance_delay_years': 2,  # future scenario: years between the first plan year and the inheritance
         'bequest_age': 90,
-        # Warnings before a plan that hardly reacts to a scenario is submitted ("Go back and review" /
-        # "Proceed anyway"), as shares of the inheritance. None = no warning.
-        'warning_low_total_share': 0.05,  # the changes in spending of all 8 years, up or down, add up to at most this share
-        'warning_low_before_share': 0.05,  # future scenario: spending before the inheritance rises by at most this share in total
+        # Warning before a plan that hardly reacts to a scenario is submitted ("Go back and review" /
+        # "Proceed anyway"): the changes in spending of all 8 years, up or down, add up to at most this
+        # share of the inheritance. None = no warning.
+        'warning_low_total_share': 0.10,
     }]
 
 ROOM_DEFAULTS = {}

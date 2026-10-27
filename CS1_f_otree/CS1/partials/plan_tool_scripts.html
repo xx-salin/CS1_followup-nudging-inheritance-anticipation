@@ -163,12 +163,6 @@
         return values.reduce(function (total, value) { return total + value; }, 0);
     }
 
-    function agesText(ages) {
-        if (ages.length === 1) return `age ${ages[0]}`;
-        if (ages.length === 2) return `ages ${ages[0]} and ${ages[1]}`;
-        return `ages ${ages[0]} to ${ages[ages.length - 1]}`;
-    }
-
     // Warning for a plan that hardly reacts to the scenario, to avoid a lazy "same plan as before";
     // null if there is none. `changes` is the change in spending per plan year. The amounts up to
     // which a warning is shown come from PLAN_WARNING_DEFAULTS in __init__.py.
@@ -176,43 +170,20 @@
         // (almost) the same plan as before
         const totalChange = sum(changes.map(Math.abs));
         if (cfg.warning_low_total !== null && totalChange <= cfg.warning_low_total) {
+            const lastAge = cfg.ages[years - 1];
             const stated = totalChange === 0
-                ? `the inheritance would not change your spending in any of the next ${years} years`
-                : `the inheritance would change your spending by only ${money(totalChange)} in total ` +
-                    `over the next ${years} years`;
+                ? `You state that the inheritance will not affect your spending in any of the next ${years} years.`
+                : `You state that the inheritance will change your spending by only ${money(totalChange)} in total ` +
+                    `over the next ${years} years.`;
             const kept = sum(changes) > 0 ? 'almost the entire inheritance' : 'the entire inheritance';
             return {
                 kind: 'low_total',
-                text: `According to your entries, ${stated}. Note that this implies you would leave ${kept}, ` +
-                    `and any interest on it, in your savings until at least age ${cfg.ages[years - 1]}.`,
+                text: `${stated} Note that this implies you would leave ${kept}, and any interest on it, ` +
+                    `in your savings until at least age ${lastAge}. You could then either spend more than ` +
+                    `initially planned after age ${lastAge}, or leave a higher inheritance.`,
             };
         }
-
-        // (almost) no additional spending before the inheritance is received
-        const yearsBefore = cfg.ages.indexOf(cfg.inheritance_age);
-        if (cfg.warning_low_before === null || yearsBefore < 1) return null;
-        const before = changes.slice(0, yearsBefore);
-        const increase = sum(before);
-        if (increase > cfg.warning_low_before) return null;
-
-        const span = yearsBefore === 1 ? 'the year' : `the ${yearsBefore} years`;
-        const ages = agesText(cfg.ages.slice(0, yearsBefore));
-        let stated;
-        if (before.every(function (change) { return change === 0; })) {
-            stated = `the inheritance would not change your spending in ${span} before you receive it (${ages})`;
-        } else if (increase > 0) {
-            stated = `the inheritance would increase your spending by only ${money(increase)} in total ` +
-                `in ${span} before you receive it (${ages})`;
-        } else {
-            stated = `you would not spend more in ${span} before you receive the inheritance (${ages}) ` +
-                'than in your initial plan';
-        }
-        return {
-            kind: 'low_before',
-            text: `According to your entries, ${stated}. Note that this implies you would ` +
-                `${increase > 0 ? 'hardly use' : 'not use'} the inheritance before you receive it ` +
-                `at age ${cfg.inheritance_age}.`,
-        };
+        return null;
     }
 
     // The warning is shown on top of the page; _plan_warning_store() in __init__.py keeps a record of it

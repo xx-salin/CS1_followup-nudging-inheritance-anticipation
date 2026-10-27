@@ -7,7 +7,8 @@ from . import (
 )
 
 # Run with:  otree test CS1 16
-# 16 participants cover every cell of layout (2 x 2) x scenario order x follow-up framing.
+# Every 8 participants cover every cell of layout (2 x 2) x scenario order; the framing of the
+# follow-up (spending / saving) is drawn at random.
 #
 # The projections stored by the planning tool (formulas) are compared with a plain year-by-year
 # calculation, whatever the tool parameters in settings.py are. With the default parameters, the
@@ -88,7 +89,7 @@ class PlayerBot(Bot):
             ('low_total', unchanged[:-1]),  # a year is missing: counted, but not kept as the first attempt
             ('low_total', unchanged),
             ('low_total', changes),  # the first attempt is not overwritten
-            ('low_before', changes),  # only exists if the inheritance is paid in the future
+            ('low_before', changes),  # no longer exists
             ('other', changes),  # no such warning
         ]:
             page.live_method(self.player, dict(type='plan_warning', kind=kind, changes=reported))
@@ -187,8 +188,6 @@ class PlayerBot(Bot):
                 expect(self.stored(f'{timing}_change_y{year}'), change)
                 expect(self.stored(f'{timing}_change_y{year}_initial'), first_attempt[year - 1])
             expect(self.stored(f'{timing}_warned_low_total'), 3 if warned else 0)
-            if timing == 'future':
-                expect(self.stored('future_warned_low_before'), 1 if warned else 0)
             expect(fields[0], 'in', self.stored('keylog_timing_tuples'))
             self.check_projection(timing, p, spending, inheritance_age)
             if from_sheet:
@@ -220,6 +219,8 @@ class PlayerBot(Bot):
             expect(f'does not affect your current {frame_word}', 'in', self.html)
             yield Inh_Followup_B, dict(inh_followup_thought=2)
             yield Inh_Followup_C, dict(inh_followup_why='I prefer to wait until I receive it.')
+            expect('if I saved less in advance' in self.html, saving_frame)  # reasons in the same frame
+            expect('if I spent some of it in advance' in self.html, not saving_frame)
             yield Inh_Followup_D, dict(
                 inh_followup_reason_i=3, inh_followup_reason_ii=2, inh_followup_reason_iii=2,
                 inh_followup_reason_iv=2, inh_followup_reason_v=3, inh_followup_reason_vi=2,

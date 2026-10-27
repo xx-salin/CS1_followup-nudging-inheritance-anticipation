@@ -20,7 +20,7 @@ PERSONAS
   C  — spends less    : lower spending in some years, blank parents →
                          skips the Inh_Followup chain
 
-Needs 16 participant slots (one per treatment cell).
+Needs 8 participant slots (one per treatment cell).
 
 NOTES
 -----
@@ -65,7 +65,7 @@ ACTIVE_PERSONA = "C"   # "A", "B", or "C"
 # ---------------------------------------------------------------------------
 BASE_URL   = "http://127.0.0.1:8000/"
 APP_NAME   = "CS1"
-NUM_TREATMENTS = 16          # always 16 for CS1
+NUM_TREATMENTS = 8           # always 8 for CS1
 MAX_STEPS  = 500
 OUT_DIR    = "screenshots"
 HEADED     = True            # False = headless
@@ -80,11 +80,11 @@ CAPTURE_ONCE_LABELS = {
 
 # ---------------------------------------------------------------------------
 # Treatment cells (must match creating_session order in __init__.py)
-# layout (2 x 2) x order of the scenarios x framing of the own-inheritance follow-up
+# layout (2 x 2) x order of the scenarios (the spend/save framing of the own-inheritance
+# follow-up is drawn at random)
 # ---------------------------------------------------------------------------
 GROUPS = [
-    f"{layout}_{round_order}_{frame}"
-    for frame in ["spendframe", "saveframe"]
+    f"{layout}_{round_order}"
     for round_order in ["present_first", "future_first"]
     for layout in ["natural_2", "reframed_2", "natural_1", "reframed"]
 ]
@@ -806,7 +806,7 @@ def main():
     num_treatments = min(args.treatments, len(GROUPS))
 
     out_root = Path(args.out)
-    # Output goes to: screenshots/CS1_personaA/treatment_01_natural_2_present_first_spendframe/ etc.
+    # Output goes to: screenshots/CS1_personaA/treatment_01_natural_2_present_first/ etc.
     out_dir = out_root / f"{args.app}_persona{persona_key}"
     out_dir.mkdir(parents=True, exist_ok=True)
 

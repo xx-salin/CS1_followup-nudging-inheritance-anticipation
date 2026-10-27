@@ -59,7 +59,7 @@ class Player(BasePlayer):
     tool = models.BooleanField()  # and whether the planning tool updates with the entries
     round_order = models.StringField()  # present_first / future_first
     mother_father = models.IntegerField(initial=0)  # mother = 1, father = 2
-    inh_followup_frame = models.IntegerField()  # spending frame = 1, saving frame = 2
+    inh_followup_frame = models.IntegerField()  # spending frame = 1, saving frame = 2 (random, 50/50)
     # BOT SCREENING (Attention checks?)
     attention1 = models.IntegerField(initial=2)
     attention2 = models.IntegerField(initial=2)
@@ -188,9 +188,7 @@ class Player(BasePlayer):
     future_spend_y8 = models.IntegerField(blank=True)
     future_depletion_age = models.IntegerField(blank=True)
     future_bequest = models.FloatField(blank=True)
-    # warned_low_before = number of times the warning about spending before the inheritance was shown
     future_warned_low_total = models.IntegerField(initial=0)
-    future_warned_low_before = models.IntegerField(initial=0)
     future_change_y1_initial = models.IntegerField(blank=True)
     future_change_y2_initial = models.IntegerField(blank=True)
     future_change_y3_initial = models.IntegerField(blank=True)
@@ -413,16 +411,14 @@ PLAN_PARAM_DEFAULTS = dict(
     inheritance_delay_years=2,  # future scenario: years between the first plan year and the inheritance
     bequest_age=90,
 )
-# Warnings on the Plan_Update pages for a plan that hardly reacts to the scenario, to avoid a lazy
-# "same plan as before". The participant can go back or proceed anyway. Each warning is shown up to
-# a share of the inheritance; None switches it off. They can be changed per session as well.
+# Warning on the Plan_Update pages for a plan that hardly reacts to the scenario, to avoid a lazy
+# "same plan as before" (as the warnings of experiment 1). The participant can go back or proceed anyway.
+# It is shown up to a share of the inheritance; None switches it off. It can be changed per session as well.
 PLAN_WARNING_DEFAULTS = dict(
     # both scenarios: the changes in spending of all plan years, up or down, add up to at most this share
-    warning_low_total_share=0.05,
-    # future scenario: spending in the years before the inheritance rises by at most this share in total
-    warning_low_before_share=0.05,
+    warning_low_total_share=0.10,
 )
-PLAN_WARNING_KINDS = dict(present=['low_total'], future=['low_total', 'low_before'])
+PLAN_WARNING_KINDS = dict(present=['low_total'], future=['low_total'])
 PLAN_YEAR_NUMBERS = range(1, C.PLAN_YEARS + 1)
 PLAN_TOLERANCE = 1e-6  # savings this close to zero count as zero (rounding in the formulas)
 PLAN_USED_UP_BELOW = 0.5  # savings shown as £0 count as used up (age of depletion, no inheritance left)
@@ -768,7 +764,6 @@ def _plan_js_vars(player: Player, mode, fields, timing=None):
         bequest_age=p['bequest_age'],
         # amounts up to which planWarning() warns about a plan that hardly reacts to the scenario
         warning_low_total=_plan_warning_amount(p, 'warning_low_total_share'),
-        warning_low_before=_plan_warning_amount(p, 'warning_low_before_share'),
         tolerance=PLAN_TOLERANCE,
         used_up_below=PLAN_USED_UP_BELOW,
         rate_tolerance=PLAN_RATE_TOLERANCE,
@@ -941,20 +936,17 @@ def creating_session(subsession: Subsession):
     if subsession.round_number == 1:
         _plan_check_params(_plan_params_from_config(subsession.session.config))
 
-        # Between-subject cells: layout (2 x 2) x order of the two scenarios x framing of the own-inheritance
-        # follow-up. The layout changes fastest, so that every 8 participants cover layout x order once.
-        cells = [
-            (layout, round_order, frame)
-            for frame in [1, 2]
-            for round_order in C.ROUND_ORDERS
-            for layout in C.LAYOUTS
-        ]
+        # Between-subject cells: layout (2 x 2) x order of the two scenarios. The layout changes fastest,
+        # so that every 8 participants cover all cells once.
+        cells = [(layout, round_order) for round_order in C.ROUND_ORDERS for layout in C.LAYOUTS]
 
         for i, player in enumerate(subsession.get_players()):
-            player.layout, player.round_order, player.inh_followup_frame = cells[i % len(cells)]
+            player.layout, player.round_order = cells[i % len(cells)]
             player.entry_frame = 'level' if _plan_level(player) else 'change'
             player.tool = _plan_tool(player)
+            # drawn independently of the treatment, with 50/50 likelihood each
             player.mother_father = random.randint(1, 2)
+            player.inh_followup_frame = random.randint(1, 2)
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -1476,6 +1468,19 @@ class Inh_Followup_D(Page):
             'vi': 'I consider that there is too much uncertainty in the timing and value of the inheritance',
             'vii': 'I worry that my parent would reduce my inheritance if I spent some of it in advance',
         }
+
+        # saving frame: the same reasons, about saving less instead of spending more
+        saving_reason_labels = {
+            'i': 'I keep future payments such as this one in a different budget than the budget that I use to determine my current saving',
+            'ii': 'It would be morally wrong to save less because of an inheritance before I receive it',
+            'iii': "I wouldn't know how to save less because of the inheritance I receive in the future",
+            'iv': 'I cannot save less before receiving the inheritance because I have little savings and cannot access credit',
+            'v': 'Saving less in advance of the inheritance would require me to borrow, which I do not want to do',
+            'vi': 'I consider that there is too much uncertainty in the timing and value of the inheritance',
+            'vii': 'I worry that my parent would reduce my inheritance if I saved less in advance',
+        }
+        if player.inh_followup_frame == 2:
+            reason_labels = saving_reason_labels
 
         reason_rows = []
         for r in reasons:
