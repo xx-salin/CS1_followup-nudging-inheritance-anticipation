@@ -1,51 +1,52 @@
 """
 capture_cs1_screenshots.py
 ==========================
-Automated Playwright screenshot script for the CS1 oTree experiment.
+Automated Playwright screenshot script for the CS1 follow-up experiment.
+
+One run captures every variation of the study with as few pictures as possible:
+
+  01_full_run/       participant 1 (change frame, no tool, inheritance today first),
+                     every page in the order a participant sees them, including
+                     the pop-ups (read-the-scenario alert, comprehension test
+                     reminder after a wrong answer, warning for a plan without
+                     any change)
+  02_variations/     only the pages that look different for the other
+                     participants: the plan-update page of each group in both
+                     rounds, the scenario pages in the other order, and the
+                     inheritance follow-up screens in the other framing
+  index.md           what each picture shows
 
 HOW TO USE
 ----------
 1. Start oTree:  otree devserver
-2. Set ACTIVE_PERSONA below to "A", "B", or "C"
-3. Run script (no args needed from VS Code)
-4. Save screenshots, then:  otree resetdb
-5. Change ACTIVE_PERSONA to next letter, repeat
+2. Run this script (no arguments needed from VS Code)
+3. Optional, afterwards:  otree resetdb
 
-PERSONAS
---------
-  A  — spends it      : entries of ToyLifecycleTool.xlsx, expects an own
-                         inheritance → full Inh_Followup chain (A→D)
-  B  — no reaction    : spending unchanged in every year, expects an own
-                         inheritance that affects them → Inh_Followup_A only
-  C  — spends less    : lower spending in some years, blank parents →
-                         skips the Inh_Followup chain
+The script creates its own session. Participants 1-5 cover all treatment
+cells that look different (groups x round, scenario order); after them it only
+continues with further participants until the follow-up screens were seen in
+both the spend and the save framing, which are drawn at random.
 
-Needs 8 participant slots (one per treatment cell).
+PARTICIPANTS
+------------
+  1        "full run": no change in spending in the first round (shows the
+           warning), first answers the comprehension test wrongly (shows the
+           reminder), then the entries of ToyLifecycleTool.xlsx
+  2 and on the entries of ToyLifecycleTool.xlsx, correct answers
+  all      expect an inheritance from their parents and say it does not affect
+           them, so they see all four follow-up screens
 
 NOTES
 -----
 BotScreening: the Next button is disabled on load by JS. The script
   calls window.onCaptchaVerified('automation-bypass') to re-enable it,
-  then clicks it. No changes to __init__.py needed.
-
-Scenario popup: the scenario pages use a custom #nextBtn (not oTree's
-  standard next button) with a DOM #quick-alert div. The script:
-    1. Screenshots the page normally
-    2. Clicks #nextBtn  → #quick-alert becomes visible
-    3. Screenshots the page with the alert showing
-    4. Clicks #quick-alert-ok to dismiss it
-    5. Clicks #nextBtn again → form.submit() → navigates away
-
-Plan warning popup: on the Plan_Update pages, pressing Next with a plan that
-  hardly reacts to the scenario shows the #plan-warning popup instead of
-  submitting (personas B and C, see PLAN_WARNING_DEFAULTS in __init__.py).
-  The script screenshots the popup and clicks #plan-warning-proceed
-  ("Proceed anyway"), which submits the plan.
+  then clicks it (needs 'testing': True in settings.py).
 """
 
 import argparse
 import json as _json
 import re
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -53,35 +54,20 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 
-# ===========================================================================
-# ★  CHANGE THIS ONE LINE TO SWITCH PERSONA  ★
-# ===========================================================================
-ACTIVE_PERSONA = "C"   # "A", "B", or "C"
-# ===========================================================================
-
-
 # ---------------------------------------------------------------------------
 # Config (edit here or pass as CLI args)
 # ---------------------------------------------------------------------------
 BASE_URL   = "http://127.0.0.1:8000/"
 APP_NAME   = "CS1"
-NUM_TREATMENTS = 8           # always 8 for CS1
-MAX_STEPS  = 500
+CELLS_NEEDED = 5             # participants 1-5 show all treatment variations
+MAX_PARTICIPANTS = 16        # further participants only for the spend/save framing
+MAX_STEPS  = 200
 OUT_DIR    = "screenshots"
 HEADED     = True            # False = headless
 
-# Pages captured only once (same across all treatments)
-CAPTURE_ONCE_LABELS = {
-    "Instructions_WelcomeScreen",
-    "AttentionCheck3_AI",
-    "AttentionCheck4_AI",
-    "AttentionCheckResult",
-}
-
 # ---------------------------------------------------------------------------
 # Treatment cells (must match creating_session order in __init__.py)
-# layout (2 x 2) x order of the scenarios (the spend/save framing of the own-inheritance
-# follow-up is drawn at random)
+# layout (2 x 2) x order of the scenarios
 # ---------------------------------------------------------------------------
 GROUPS = [
     f"{layout}_{round_order}"
@@ -93,6 +79,9 @@ PLAN_YEARS = range(1, 9)
 # plan of ToyLifecycleTool.xlsx; with other tool parameters in settings.py, plan_values_for_page()
 # takes the plan from the page instead
 BASE_SPENDING = [27000, 27000, 27000, 27000, 25000, 25000, 25000, 25000]
+# changes in spending of the sheets "Natural_1" (also used for the level groups)
+SHEET_CHANGES = dict(present=[30000, 10000, 5000, 5000, 0, 0, 0, 0],
+                     future=[2500, 2500, 25000, 10000, 5000, 5000, 0, 0])
 
 
 def _plan_values(prefix, amounts):
@@ -100,8 +89,8 @@ def _plan_values(prefix, amounts):
 
 
 def _reaction_values(present_changes, future_changes):
-    """Entries for the Plan_Update pages: the natural layouts show the *_change_*
-    inputs, the reframed layouts the *_spend_* inputs."""
+    """Entries for the Plan_Update pages: the change groups show the *_change_*
+    inputs, the level groups the *_spend_* inputs."""
     values = {}
     for timing, changes in [("present", present_changes), ("future", future_changes)]:
         values.update(_plan_values(f"{timing}_change", changes))
@@ -113,8 +102,8 @@ def _reaction_values(present_changes, future_changes):
 def plan_values_for_page(page, number_values):
     """Spending entries that follow the plan a planning-tool page is based on (its js_vars), so
     that the script works whatever the tool parameters in settings.py are (retirement age etc.):
-    the baseline gets the plan of the page's "Skip for testing" button, and the reframed layouts
-    the persona's change in spending added to the participant's initial plan."""
+    the baseline gets the plan of the page's "Skip for testing" button, and the level groups
+    the change in spending added to the participant's initial plan."""
     cfg = page.evaluate("() => (typeof js_vars === 'undefined' ? null : js_vars)")
     if not cfg or not cfg.get("fields"):
         return number_values
@@ -130,36 +119,30 @@ def plan_values_for_page(page, number_values):
 
 
 # ---------------------------------------------------------------------------
-# Base field values (shared by all personas)
+# Answers
 # ---------------------------------------------------------------------------
 TEXT_VALUES = {
     "prolific_id":           "A" * 24,
     "browser_first":         "Chrome",
     "can":                   "red",
     "words":                 "test",
-    "inh_followup_why":      "I have considered this but prefer to keep my spending plans unchanged until I receive the inheritance.",
+    "inh_followup_why":      "I have considered this but prefer to keep my plans unchanged until I receive the inheritance.",
     "inh_followup_reason_other": "",
     "OpenFeedback":          "The survey was clear and well-structured.",
-    "AI_Test2":              "[]",
 }
 
-NUMBER_VALUES_BASE = {
+NUMBER_VALUES = {
     "Demographics_Age":            "35",
     "Demographics_AgeExpectation": "80",
-    # Plan_Baseline
-    **_plan_values("base_spend", BASE_SPENDING),
-    # Inh_Followup_D likert
-    "inh_followup_reason_i":   "3",
-    "inh_followup_reason_ii":  "2",
-    "inh_followup_reason_iii": "2",
-    "inh_followup_reason_iv":  "2",
-    "inh_followup_reason_v":   "3",
-    "inh_followup_reason_vi":  "2",
-    "inh_followup_reason_vii": "2",
-    "refresh_count": "0",
+    # an inheritance is expected → the follow-up screens are shown
+    "Demographics_Mother":            "65",
+    "Demographics_Father":            "68",
+    "Demographics_MotherInheritance": "50000",
+    "Demographics_FatherInheritance": "50000",
+    **_reaction_values(SHEET_CHANGES["present"], SHEET_CHANGES["future"]),
 }
 
-RADIO_VALUES_BASE = {
+RADIO_VALUES = {
     "lines":    "1",
     "cafewall": "2",
     # Plan_Comprehension (correct answers: today / in 2 years, the full amount, inheritance)
@@ -173,89 +156,17 @@ RADIO_VALUES_BASE = {
     "Demographics_Sex":      "1",
     "Demographics_Education":"3",
     "Demographics_Children": "2",
-    # Inh_Followup_A  (2 = no effect → triggers B/C/D chain)
+    # Inh_Followup_A (2 = no effect → B), Inh_Followup_B (2 = have thought about it → C and D)
     "inh_followup_effect":  "2",
-    # Inh_Followup_B  (2 = have thought about it → triggers C/D)
     "inh_followup_thought": "2",
+    # Inh_Followup_D
+    **{f"inh_followup_reason_{r}": "3" for r in ["i", "ii", "iii", "iv", "v", "vi", "vii"]},
 }
 
-
-# ---------------------------------------------------------------------------
-# Persona-specific overrides
-# ---------------------------------------------------------------------------
-
-# Persona A — spends the inheritance: the entries of ToyLifecycleTool.xlsx
-# → qualifies for the Inh_Followup chain, answers "no effect" → A→D
-PERSONA_A = {
-    "number": {
-        "Demographics_Mother":           "65",
-        "Demographics_Father":           "68",
-        "Demographics_MotherInheritance":"50000",
-        "Demographics_FatherInheritance":"50000",
-        **_reaction_values(
-            present_changes=[30000, 10000, 5000, 5000, 0, 0, 0, 0],
-            future_changes=[2500, 2500, 25000, 10000, 5000, 5000, 0, 0]),
-    },
-    "radio": {},
-    "blank": [],
-}
-
-# Persona B — no reaction: spending unchanged in every year
-# → qualifies for the Inh_Followup chain, answers that the inheritance affects them → A only
-PERSONA_B = {
-    "number": {
-        "Demographics_Mother":           "65",
-        "Demographics_Father":           "68",
-        "Demographics_MotherInheritance":"50000",
-        "Demographics_FatherInheritance":"50000",
-        **_reaction_values(present_changes=[0] * 8, future_changes=[0] * 8),
-    },
-    "radio": {"inh_followup_effect": "1"},
-    "blank": [],
-}
-
-# Persona C — spends less in some years, blank parents → skips the Inh_Followup chain
-PERSONA_C = {
-    "number": {
-        **_reaction_values(
-            present_changes=[-1000, 0, 0, 0, 0, 0, 0, -1000],
-            future_changes=[-2000, -2000, 0, 0, 0, 0, 0, 0]),
-    },
-    "radio": {},
-    "blank": [
-        "Demographics_Mother",
-        "Demographics_Father",
-        "Demographics_MotherInheritance",
-        "Demographics_FatherInheritance",
-    ],
-}
-
-PERSONAS = {"A": PERSONA_A, "B": PERSONA_B, "C": PERSONA_C}
-
-PERSONA_DESCRIPTIONS = {
-    "A": "spends it — entries of ToyLifecycleTool.xlsx, full Inh_Followup chain",
-    "B": "no reaction — spending unchanged, own inheritance affects them (Inh_Followup_A only)",
-    "C": "spends less — lower spending in some years, no own inheritance, skips Inh_Followup",
-}
-
-
-# ---------------------------------------------------------------------------
-# Build merged value tables for the active persona
-# ---------------------------------------------------------------------------
-
-def _build_number_values(persona):
-    merged = dict(NUMBER_VALUES_BASE)
-    merged.update(persona["number"])
-    return merged
-
-def _build_radio_values(persona):
-    merged = dict(RADIO_VALUES_BASE)
-    merged.update(persona["radio"])
-    return merged
-
-def _build_blank_set(persona):
-    return set(persona["blank"])
-
+# participant 1 ("full run"): no change in its first round (present), wrong answers first
+FULL_RUN_NUMBER_VALUES = {**NUMBER_VALUES, **_plan_values("present_change", [0] * 8),
+                          **_plan_values("present_spend", BASE_SPENDING)}
+WRONG_COMPREHENSION = {"present_comp_q1_timing": "3", "present_comp_q2_amount": "1"}
 
 # ---------------------------------------------------------------------------
 # URL helpers
@@ -644,140 +555,150 @@ def capture_page(page, target):
     page.screenshot(path=str(target), full_page=False)
 
 
+
+
 # ---------------------------------------------------------------------------
-# Per-participant runner
+# Which variation a page shows
 # ---------------------------------------------------------------------------
 
-def run_participant(
-    page,
-    participant_url,
-    out_dir,
-    folder_label,
-    max_steps,
-    number_values,
-    blank_fields,
-    radio_values,
-    capture_once_labels,
-    already_captured_once,
-):
-    page.goto(participant_url, wait_until="domcontentloaded")
+def page_variant(page, label, state):
+    """Name of the variation a page shows. A page is only captured the first time its
+    variation appears (participant 1 captures every page)."""
+    if label.startswith("Plan_Scenario"):
+        timing = "present" if "passed away last night" in page.content() else "future"
+        return f"{label}_{timing}"
+    if label.startswith("Plan_Comprehension"):
+        return "Plan_Comprehension"  # the same in both rounds
+    if label.startswith("Plan_Update"):
+        cfg = page.evaluate("() => js_vars")
+        timing = cfg["fields"][0].split("_")[0]
+        entered = "level" if cfg["mode"] == "level" else "change"
+        tool = "tool" if cfg["dynamic"] else "notool"
+        return f"Plan_Update_{entered}_{tool}_{timing}"
+    if label.startswith("Inh_Followup"):
+        if label == "Inh_Followup_A":
+            state["frame"] = "save" if "save less" in page.content() else "spend"
+        return f"{label}_{state.get('frame', 'spend')}frame"
+    return label
 
-    seen_labels = set()
 
-    for step in range(1, max_steps + 1):
+FOLLOWUP_KEYS = {f"Inh_Followup_{screen}_{frame}frame" for screen in "ABCD" for frame in ["spend", "save"]}
+
+
+class Capture:
+    """Takes each screenshot once and keeps a list of them for index.md."""
+
+    def __init__(self, out_dir):
+        self.out_dir = out_dir
+        self.seen = set()
+        self.index = []
+
+    def shot(self, page, key, folder, participant, force=False, window=False):
+        if key in self.seen and not force:
+            return
+        self.seen.add(key)
+        target = self.out_dir / folder / f"{len(self.index) + 1:02d}_{key}.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # oTree's "Debug info" panel and the "Skip for testing" buttons are not part of what participants see
+        page.evaluate("() => document.querySelectorAll('.debug-info, #skipBtn').forEach(e => e.style.display = 'none')")
+        if window:  # pop-ups cover the window, not the page
+            page.screenshot(path=str(target), full_page=False)
+        else:
+            capture_page(page, target)
+        self.index.append((target.relative_to(self.out_dir), participant, key))
+
+    def write_index(self):
+        lines = ["# Screenshots", "", "| Picture | Participant (group, round order) | Shows |", "|---|---|---|"]
+        for path, participant, key in self.index:
+            lines.append(f"| {path} | {participant} | {key.replace('_', ' ')} |")
+        (self.out_dir / "index.md").write_text("\n".join(lines) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+
+def submit(page, click, timeout=10000):
+    """Clicks and waits for the next page; falls back to submitting the form directly."""
+    url_before = page.url
+    try:
+        with page.expect_navigation(wait_until="domcontentloaded", timeout=timeout):
+            click()
+    except PlaywrightTimeoutError:
+        pass
+    if page.url == url_before:
+        force_advance_form(page)
         page.wait_for_load_state("domcontentloaded")
-        plabel = resolve_page_label(page)
 
-        # --- Screenshot this page (once per label) ---
-        if plabel not in seen_labels:
-            should_capture = not (plabel in capture_once_labels and plabel in already_captured_once)
-            if should_capture:
-                file_name = f"{len(seen_labels) + 1:03d}_{plabel}.png"
-                target = out_dir / folder_label / file_name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                capture_page(page, target)
-                if plabel in capture_once_labels:
-                    already_captured_once.add(plabel)
-            seen_labels.add(plabel)
 
-        # --- BotScreening: enable the Next button via JS then submit ---
-        if plabel == "BotScreening":
-            if fast_forward_bot_screening(page):
-                continue
+def run_participant(page, url, number, group, capture, max_steps):
+    full_run = number == 1
+    folder = "01_full_run" if full_run else "02_variations"
+    who = f"P{number} ({group})"
+    number_values = FULL_RUN_NUMBER_VALUES if full_run else NUMBER_VALUES
+    state = {}
+    wrong_answer_shown = not full_run
+    page.goto(url, wait_until="domcontentloaded")
 
-        # --- Scenario pages: #nextBtn + #quick-alert DOM warning ---
-        # These pages use a custom #nextBtn (not the oTree next button).
-        # Clicking it within 10s reveals #quick-alert. We need to:
-        #   1. Click #nextBtn  (alert appears, no navigation)
-        #   2. Screenshot the alert
-        #   3. Click #quick-alert-ok  (alert hides, warningConfirmed = true)
-        #   4. Click #nextBtn again   (form.submit() → navigates)
-        if page.locator("#nextBtn").count() > 0:
-            fill_fields(page, number_values, blank_fields, radio_values)
+    for _ in range(max_steps):
+        page.wait_for_load_state("domcontentloaded")
+        label = resolve_page_label(page)
+        key = page_variant(page, label, state)
+        plan_update = label.startswith("Plan_Update")
 
-            # Step 1: click Next — will trigger the warning alert
-            page.locator("#nextBtn").click()
-            page.wait_for_timeout(400)  # let the alert render
+        if not plan_update:  # the plan-update pages are captured after the entries are typed
+            capture.shot(page, key, folder, who, force=full_run)
+        if label == "LinkToProlific":
+            return
 
-            alert = page.locator("#quick-alert")
-            if alert.is_visible():
-                # Step 2: screenshot page with alert visible
-                alert_file = f"{len(seen_labels):03d}_{plabel}_warning_alert.png"
-                alert_target = out_dir / folder_label / alert_file
-                alert_target.parent.mkdir(parents=True, exist_ok=True)
-                capture_page(page, alert_target)
-
-                # Step 3: click Ok to dismiss alert
-                page.locator("#quick-alert-ok").click()
-                page.wait_for_timeout(200)
-
-            # Step 4: click Next again — now submits
-            url_before = page.url
-            try:
-                with page.expect_navigation(wait_until="domcontentloaded", timeout=15000):
-                    page.locator("#nextBtn").click()
-            except PlaywrightTimeoutError:
-                if page.url == url_before:
-                    force_advance_form(page)
+        # BotScreening: the Next button is enabled through the page's own callback
+        if label == "BotScreening":
+            fast_forward_bot_screening(page)
             continue
 
-        # --- Plan_Update pages: #plan-warning popup ---
-        # Pressing Next with a plan that hardly reacts to the scenario shows the
-        # popup instead of submitting. We need to:
-        #   1. Click Next                    (popup appears, no navigation)
-        #   2. Screenshot the popup
-        #   3. Click #plan-warning-proceed   ("Proceed anyway" → submits)
-        if page.locator("#plan-warning").count() > 0:
-            fill_fields(page, number_values, blank_fields, radio_values)
+        # Scenario pages: Next within 10 seconds shows the read-the-scenario alert
+        if page.locator("#nextBtn").count() > 0:
+            page.locator("#nextBtn").click()
+            page.wait_for_timeout(400)
+            if page.locator("#quick-alert").is_visible():
+                capture.shot(page, "Plan_Scenario_alert", folder, who, window=True)
+                page.locator("#quick-alert-ok").click()
+            submit(page, lambda: page.locator("#nextBtn").click())
+            continue
 
+        # Comprehension test: participant 1 first answers wrongly, which shows the reminder
+        if label.startswith("Plan_Comprehension") and not wrong_answer_shown:
+            fill_fields(page, number_values, set(), {**RADIO_VALUES, **WRONG_COMPREHENSION})
+            page.locator("button.otree-btn-next").click()
+            page.wait_for_load_state("domcontentloaded")
+            page.wait_for_timeout(300)
+            capture.shot(page, "Plan_Comprehension_reminder", folder, who, force=True)
+            wrong_answer_shown = True
+
+        fill_fields(page, number_values, set(), RADIO_VALUES)
+
+        # Plan-update pages: captured with the entries; a plan without any change shows the warning
+        if plan_update:
+            page.wait_for_timeout(300)
+            capture.shot(page, key, folder, who, force=full_run)
             url_before = page.url
             page.locator("button.otree-btn-next").click()
-            page.wait_for_timeout(400)  # let the popup render, or the page submit
-
+            page.wait_for_timeout(400)
             if page.url == url_before and page.locator("#plan-warning").is_visible():
-                warning_file = f"{len(seen_labels):03d}_{plabel}_plan_warning.png"
-                warning_target = out_dir / folder_label / warning_file
-                warning_target.parent.mkdir(parents=True, exist_ok=True)
-                # the popup covers the window, not the page
-                page.screenshot(path=str(warning_target), full_page=False)
+                capture.shot(page, "Plan_Update_warning", folder, who, window=True)
                 page.locator("#plan-warning-proceed").click()
-
             try:
                 page.wait_for_url(lambda u: u != url_before, timeout=15000)
             except PlaywrightTimeoutError:
                 force_advance_form(page)
             continue
 
-        # --- Normal pages: standard oTree Next button ---
-        btn = next_button_locator(page)
-        if btn is None:
-            break
-
-        fill_fields(page, number_values, blank_fields, radio_values)
-
-        url_before = page.url
-        try:
-            with page.expect_navigation(wait_until="domcontentloaded", timeout=5000):
-                btn.click()
-        except PlaywrightTimeoutError:
-            if page.url == url_before:
-                # Navigation didn't happen — retry
-                try:
-                    btn.click()
-                    page.wait_for_url(lambda u: u != url_before, timeout=5000)
-                except Exception:
-                    if not force_advance_form(page):
-                        break
-            if page.url == url_before:
-                if not force_advance_form(page):
-                    break
-
-        if "LinkToProlific" in page.url:
-            page.wait_for_load_state("domcontentloaded")
-            end_label = resolve_page_label(page)
-            target = out_dir / folder_label / f"{step + 1:03d}_{end_label}.png"
-            capture_page(page, target)
-            break
+        button = next_button_locator(page)
+        if button is None:
+            print(f"    stopped on {label}: no Next button")
+            return
+        submit(page, button.click)
+    print(f"    stopped after {max_steps} pages")
 
 
 # ---------------------------------------------------------------------------
@@ -786,92 +707,47 @@ def run_participant(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-url",    default=BASE_URL)
-    parser.add_argument("--app",         default=APP_NAME)
-    parser.add_argument("--treatments",  type=int, default=NUM_TREATMENTS)
-    parser.add_argument("--max-steps",   type=int, default=MAX_STEPS)
-    parser.add_argument("--out",         default=OUT_DIR)
-    parser.add_argument("--persona",     default=ACTIVE_PERSONA,
-                        choices=["A", "B", "C"],
-                        help="Override ACTIVE_PERSONA from CLI")
-    parser.add_argument("--headed",      action="store_true", default=HEADED)
-    parser.add_argument("--no-headed",   dest="headed", action="store_false")
+    parser.add_argument("--base-url", default=BASE_URL)
+    parser.add_argument("--app", default=APP_NAME)
+    parser.add_argument("--max-participants", type=int, default=MAX_PARTICIPANTS)
+    parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
+    parser.add_argument("--out", default=OUT_DIR)
+    parser.add_argument("--headed", action="store_true", default=HEADED)
+    parser.add_argument("--no-headed", dest="headed", action="store_false")
     args = parser.parse_args()
 
-    persona_key = args.persona.upper()
-    persona = PERSONAS[persona_key]
-    number_values = _build_number_values(persona)
-    blank_fields   = _build_blank_set(persona)
-
-    num_treatments = min(args.treatments, len(GROUPS))
-
-    out_root = Path(args.out)
-    # Output goes to: screenshots/CS1_personaA/treatment_01_natural_2_present_first/ etc.
-    out_dir = out_root / f"{args.app}_persona{persona_key}"
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    out_dir = Path(args.out) / f"{args.app}_{stamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
+    capture = Capture(out_dir)
 
-    already_captured_once = set()
-
-    print(f"\n{'='*60}")
-    print(f"  CS1 Screenshot Capture")
-    print(f"  Persona : {persona_key} — {PERSONA_DESCRIPTIONS[persona_key]}")
-    print(f"  Output  : {out_dir.resolve()}")
-    print(f"  Treatments: {num_treatments}  |  Headed: {args.headed}")
-    print(f"{'='*60}\n")
+    print(f"\n{'='*60}\n  CS1 Screenshot Capture\n  Output: {out_dir.resolve()}\n{'='*60}\n")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not args.headed)
         setup_page = browser.new_page(viewport={"width": 1440, "height": 1100})
-
-        print(f"Creating session with {num_treatments} participant slots…")
-        participant_links = create_session_and_get_links(
-            page=setup_page,
-            base_url=args.base_url,
-            app_name=args.app,
-            expected_links=num_treatments,
-        )
+        links = create_session_and_get_links(
+            page=setup_page, base_url=args.base_url, app_name=args.app,
+            expected_links=args.max_participants)
         setup_page.close()
 
-        for t_idx in range(num_treatments):
-            if t_idx >= len(participant_links):
-                print(f"  Warning: ran out of links at treatment {t_idx + 1}")
+        for number, url in enumerate(links, start=1):
+            done = number > CELLS_NEEDED and FOLLOWUP_KEYS <= capture.seen
+            if done:
                 break
-
-            group_str  = GROUPS[t_idx]
-            radio_values = _build_radio_values(persona)
-
-            folder_label = f"treatment_{t_idx + 1:02d}_{group_str}"
-            url = participant_links[t_idx]
-
-            print(f"  [{t_idx + 1:02d}/{num_treatments}] {group_str}")
-
-            run_page = browser.new_page(viewport={"width": 1440, "height": 1100})
-            run_participant(
-                page=run_page,
-                participant_url=url,
-                out_dir=out_dir,
-                folder_label=folder_label,
-                max_steps=args.max_steps,
-                number_values=number_values,
-                blank_fields=blank_fields,
-                radio_values=radio_values,
-                capture_once_labels=CAPTURE_ONCE_LABELS,
-                already_captured_once=already_captured_once,
-            )
-            run_page.close()
-
+            group = GROUPS[(number - 1) % len(GROUPS)]
+            print(f"  P{number} {group}")
+            page = browser.new_page(viewport={"width": 1440, "height": 1100})
+            run_participant(page, url, number, group, capture, args.max_steps)
+            page.close()
         browser.close()
 
-    print(f"\nDone — Persona {persona_key} screenshots saved to: {out_dir.resolve()}")
-    print("\nNext steps:")
-    print("  1. Review screenshots in the folder above")
-    print("  2. Run:  otree resetdb")
-    next_p = {"A": "B", "B": "C", "C": "— all done!"}.get(persona_key, "")
-    if next_p != "— all done!":
-        print(f"  3. Change ACTIVE_PERSONA = \"{next_p}\" at the top of this script")
-        print(f"  4. Rerun script")
-    else:
-        print(f"  3. {next_p}")
+    capture.write_index()
+    missing = FOLLOWUP_KEYS - capture.seen
+    print(f"\nDone: {len(capture.index)} screenshots in {out_dir.resolve()} (see index.md)")
+    if missing:
+        print(f"Not captured (the random spend/save framing did not come up): {sorted(missing)}")
+    print("Optional: otree resetdb")
 
 
 if __name__ == "__main__":
