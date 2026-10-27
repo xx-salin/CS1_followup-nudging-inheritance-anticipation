@@ -306,10 +306,11 @@
                 });
             }
 
-            drawChart(inputs.map(function (_, year) {
-                return cfg.mode === 'change' ? (entry(year) || 0) : preview[year];
-            }));
+            if (cfg.mode === 'level') drawChart(preview);
         }
+
+        // the graph of the entered changes is also shown without the planning tool
+        if (cfg.mode === 'change') drawChart(inputs.map(function (_, year) { return entry(year) || 0; }));
 
         // Before the first attempt to continue, only complete but infeasible plans are flagged
         const complete = inputs.every(function (_, year) { return entry(year) !== null; });
@@ -322,8 +323,6 @@
     inputs.forEach(function (input, year) {
         input.setAttribute('step', '1');
         input.setAttribute('aria-label', 'Age ' + cfg.ages[year]);
-        // updated spending: the box shows the initial plan in gray until a number is typed
-        if (cfg.mode === 'level') input.setAttribute('placeholder', cfg.base_spend[year]);
         input.addEventListener('input', function (event) {
             // keystroke timing, as on the other pages with typed answers
             try {

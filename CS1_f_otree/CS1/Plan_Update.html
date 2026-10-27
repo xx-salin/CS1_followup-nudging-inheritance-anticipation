@@ -22,13 +22,13 @@
         {{ if layout == 'reframed' }}
             <strong>Please enter your plan for spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
             The table and the graph update as you type.
-            The boxes show your initial plan in gray: please type a number into every box,
-            also for years in which you would spend the same as in your initial plan.
+            Please type a number into every box, also for years in which you would spend the same as in your initial plan.
         {{ elif layout == 'natural_1' }}
             <strong>Please enter your plan for changes in spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
             The table and the graph update as you type.
         {{ else }}
             <strong>Please enter how this would change your spending plans for each of the coming {{ plan_years }} years.</strong>
+            The graph updates as you type.
         {{ endif }}
     </div>
     {{ if layout != 'reframed' }}
@@ -49,6 +49,13 @@
                      data-axis="Change in Spending that Year" data-min-scale="{{ chart_min_scale }}"></div>
             {{ endif }}
             <ul class="plan-notes" id="plan-notes"></ul>
+        </div>
+    {{ else }}
+        <!-- graph of the entered changes; same size as with the planning tool -->
+        <div class="plan-overview">
+            <div class="plan-chart" id="plan-chart" style="flex: 0 1 670px;"
+                 data-title="Change in Spending each Year as a Reaction to the Scenario"
+                 data-axis="Change in Spending that Year" data-min-scale="{{ chart_min_scale }}"></div>
         </div>
     {{ endif }}
 
@@ -118,7 +125,9 @@
     </div>
 
     {{ if layout == 'natural_2' }}
-        <div style="margin-top: 30px;"><strong>Reminder: Initial Financial Plan</strong></div>
+        <!-- in a box like the scenario reminder: none of this changes with the entries above -->
+        <div class="plan-box bg-light" style="margin-top: 30px;">
+        <strong>Reminder: Initial Financial Plan</strong>
         <div class="plan-table-wrapper">
             <table class="plan-table">
                 {{ include "CS1/partials/plan_table_head.html" }}
@@ -149,6 +158,7 @@
         <ul class="plan-notes">
             {{ for note in base_notes }}<li><strong>{{ note.main }}</strong> {{ note.detail }}</li>{{ endfor }}
         </ul>
+        </div>
     {{ endif }}
 
     <div style="margin-top: 30px;">
