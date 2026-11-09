@@ -2,7 +2,7 @@ from otree.api import Bot, Submission, SubmissionMustFail, expect
 
 from . import *
 from . import (
-    _plan_error, _plan_project, _plan_example_spending, _plan_income, _plan_inheritance_age, _plan_params, _plan_scenario_timing,
+    _money, _money_exact, _plan_error, _plan_project, _plan_example_spending, _plan_income, _plan_inheritance_age, _plan_params, _plan_scenario_timing,
     _plan_update_fields,
 )
 
@@ -45,6 +45,22 @@ def year_by_year(p, spending, inheritance_age=None):
         if depletion_age is not None and bequest is not None:
             break
     return depletion_age, bequest
+
+
+def check_money_format():
+    """Thousands are separated by a small space (narrow no-break space), never by a comma."""
+    symbol = C.DEFAULT_CURRENCY_SYMBOL
+    expect(THOUSANDS_SEPARATOR, '\u202f')
+    expect(_money(999), f'{symbol}999')
+    expect(_money(1000), f'{symbol}1\u202f000')
+    expect(_money(50000), f'{symbol}50\u202f000')
+    expect(_money(-1234567.4), f'-{symbol}1\u202f234\u202f567')
+    expect(',', 'not in', _money(123456789))
+    # amounts entered by the participant show their cents, if any
+    expect(_money_exact(27000), f'{symbol}27\u202f000')
+    expect(_money_exact(27000.5), f'{symbol}27\u202f000.50')
+    expect(_money_exact(-1234.05), f'-{symbol}1\u202f234.05')
+    expect(_money_exact(0.004), f'{symbol}0')
 
 
 def check_depletion_examples(p, base):
@@ -102,6 +118,7 @@ class PlayerBot(Bot):
         expect(self.player.round_order, 'in', C.ROUND_ORDERS)
         p = _plan_params(self.player)
         sheet_parameters = all(p[name] == value for name, value in PLAN_PARAM_DEFAULTS.items())
+        check_money_format()
 
         yield Instructions_WelcomeScreen, dict(prolific_id='A' * 24, browser_first='bot', isLeaving=False)
         yield AttentionCheck3_AI, dict(lines=1)
@@ -112,15 +129,22 @@ class PlayerBot(Bot):
         base = _plan_example_spending(p)  # also entered by the "Skip for testing" button
         if sheet_parameters:
             expect(base, SHEET_BASE_SPENDING)
+        if self.case == 'spends_less':
+            base = [base[0] + 0.55] + base[1:]  # cents are allowed
         base_fields = Plan_Baseline.form_fields
         beyond_means = p['initial_wealth'] + p['salary'] + p['pension'] + p['inheritance'] + 1
         yield SubmissionMustFail(Plan_Baseline, dict(zip(base_fields[:-1], base)))  # a year is missing
         yield SubmissionMustFail(Plan_Baseline, dict(zip(base_fields, [-1] + base[1:])))
+        # (a comma would be read as a decimal point here: 27,000 as 27.0. The page blocks commas before it
+        # submits, see AmountInput in partials/amount_input.html; the bots do not run that script.)
+        yield SubmissionMustFail(Plan_Baseline, dict(zip(base_fields, [round(base[0]) + 0.555] + base[1:])))  # 3 decimals
         yield SubmissionMustFail(Plan_Baseline, dict(zip(base_fields, [beyond_means] + base[1:])))  # savings used up
         yield Plan_Baseline, dict(zip(base_fields, base))
+        for field, amount in zip(base_fields, base):
+            expect(self.stored(field), amount)
         self.check_projection('base', p, base)
         check_depletion_examples(p, base)
-        if sheet_parameters:
+        if sheet_parameters and self.case == 'sheet_entries':  # (spends_less has cents in the plan)
             expect((self.stored('base_depletion_age'), self.stored('base_bequest')), SHEET_BASE_RESULT)
 
         entered = 'spend' if level else 'change'
@@ -164,8 +188,8 @@ class PlayerBot(Bot):
                 shares = [0.3, 0.2, 0.1, 0.1, 0, 0, 0, 0]
                 spending = [base_year + round(share * extra) for base_year, share in zip(base, shares)]
             else:
-                spending = [round(base[0] * 0.96)] + base[1:-1] + [round(base[-1] * 0.96)]
-            changes = [spend - base_year for spend, base_year in zip(spending, base)]
+                spending = [round(base[0] * 0.9617, 2)] + base[1:-1] + [round(base[-1] * 0.9617, 2)]  # with cents
+            changes = [round(spend - base_year, 2) for spend, base_year in zip(spending, base)]
 
             if entered == 'spend':
                 entries = spending
@@ -175,6 +199,7 @@ class PlayerBot(Bot):
                 infeasible = [-base[0] - 1] + entries[1:]  # negative spending
             yield SubmissionMustFail(update_page, dict(zip(fields[:-1], entries)))  # a year is missing
             yield SubmissionMustFail(update_page, dict(zip(fields, infeasible)))
+            yield SubmissionMustFail(update_page, dict(zip(fields, [entries[0] + 0.005] + entries[1:])))  # 3 decimals
 
             # spends_less: is warned about a plan without any change, revises it and proceeds
             warned = self.case == 'spends_less'

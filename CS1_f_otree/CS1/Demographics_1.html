@@ -23,7 +23,15 @@
 {{ endblock }}
 
 {{ block scripts }}
+    {{ include "CS1/partials/amount_input.html" }}
     <script>
+        // expected inheritances: thousands grouped by a small space, error for commas
+        AmountInput.guard(['Demographics_MotherInheritance', 'Demographics_FatherInheritance'].map(function (name) {
+            const input = document.getElementById('id_' + name);
+            AmountInput.attach(input);
+            return input;
+        }), AmountInput.COMMA_MESSAGE_WHOLE);
+
         function skipPage() {
             document.getElementById('id_Demographics_Age').value = '20';
             document.getElementById('id_Demographics_AgeExpectation').value = '20';

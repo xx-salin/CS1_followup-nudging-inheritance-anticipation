@@ -1,0 +1,123 @@
+<script>
+// Amounts typed into text boxes (planning tool, expected inheritances).
+// - Thousands are separated by a small space, never by a comma: the box groups the digits while the
+//   participant types (1234567 -> 1 234 567). The same space is used for the amounts that are shown.
+// - A comma is not accepted: it is a decimal separator in many countries, so a participant who types
+//   25,230 might mean 25.23 or 25 230. The page shows an error instead of guessing. Cents are typed with
+//   a decimal point (boxes with `decimals`), e.g. 25 230.50.
+// - The server only gets the plain digits: the spaces are removed when the form is submitted.
+// The separator has to be the same as THOUSANDS_SEPARATOR in CS1/__init__.py.
+window.AmountInput = (function () {
+    const SEPARATOR = ' ';  // narrow no-break space: small, and never wraps onto another line
+    // the error for a comma: in boxes for whole numbers, and in boxes that take cents
+    const COMMA_MESSAGE_WHOLE = 'Please do not use commas in numbers. Enter whole numbers only (no decimal places).';
+    const COMMA_MESSAGE_CENTS = 'Please do not use commas in numbers. Use a decimal point for cents (e.g., 25230.50).';
+
+    // '1234567' -> '1 234 567' (the digits of a number, without sign)
+    function group(digits) {
+        return digits.replace(/\B(?=(\d{3})+$)/g, SEPARATOR);
+    }
+
+    // What the participant typed without any kind of space
+    function clean(raw) {
+        return raw.replace(/\s/g, '');
+    }
+
+    function hasComma(raw) {
+        return raw.indexOf(',') !== -1;
+    }
+
+    // Groups the digits of the box and keeps the cursor next to the same digit. Anything but digits, a
+    // minus sign, comma and period is dropped, as a number box would not accept it either. Numbers with a
+    // comma (or, in boxes for whole numbers, a period) are left as typed, so that the participant sees
+    // what is wrong with them. The decimals of boxes that take cents are not touched.
+    function reformat(input) {
+        const keep = function (text) { return text.replace(/[^0-9,.\-]/g, ''); };
+        const typed = keep(input.value);
+        const cents = input.dataset.decimals === 'cents';
+        const parts = (cents ? /^(-?)(\d*)(\.\d*)?$/ : /^(-?)(\d+)$/).exec(typed);
+        const text = parts && (parts[2] !== '' || parts[3]) ? parts[1] + group(parts[2]) + (parts[3] || '') : typed;
+        if (text === input.value) return;
+
+        const caret = input.selectionStart;
+        const before = caret === null ? null : keep(input.value.slice(0, caret)).length;
+        input.value = text;
+        if (before === null) return;
+
+        // the cursor goes behind the same number of typed characters as before
+        let position = 0, seen = 0;
+        while (position < text.length && seen < before) {
+            if (text[position] !== SEPARATOR) seen++;
+            position++;
+        }
+        try { input.setSelectionRange(position, position); } catch (error) {}
+    }
+
+    // Turns a number box into a text box that groups the digits. Options: `negative`: the box accepts a
+    // minus sign, `cents`: it accepts up to two decimals after a decimal point. The numeric keyboards of
+    // some phones have no minus sign, and show a decimal comma in some countries, so the usual keyboard
+    // is used for such boxes.
+    function attach(input, options) {
+        const negative = Boolean(options && options.negative), cents = Boolean(options && options.cents);
+        input.type = 'text';
+        input.setAttribute('autocomplete', 'off');
+        if (cents) input.dataset.decimals = 'cents';
+        if (negative || cents) input.removeAttribute('inputmode');
+        else input.setAttribute('inputmode', 'numeric');
+        input.removeAttribute('step');
+        reformat(input);
+        input.addEventListener('input', function () { reformat(input); });
+    }
+
+    // Puts a number into a box, e.g., the values of the "Skip for testing" buttons
+    function set(input, value) {
+        input.value = value;
+        reformat(input);
+    }
+
+    // The plain digits, for the form that is submitted
+    function strip(input) {
+        input.value = clean(input.value);
+    }
+
+    // For pages without their own error handling: shows the comma message under each box and does not
+    // submit the form while a box has a comma.
+    function guard(inputs, commaMessage) {
+        const messages = inputs.map(function (input) {
+            const message = document.createElement('div');
+            message.className = 'form-control-errors';
+            message.setAttribute('role', 'alert');
+            message.style.display = 'none';
+            message.textContent = commaMessage;
+            input.insertAdjacentElement('afterend', message);
+            return message;
+        });
+        const update = function () {
+            inputs.forEach(function (input, i) {
+                const wrong = hasComma(input.value);
+                messages[i].style.display = wrong ? 'block' : 'none';
+                input.style.borderColor = wrong ? '#dc3545' : '';
+            });
+        };
+        inputs.forEach(function (input) { input.addEventListener('input', update); });
+        update();
+
+        // Registered before oTree's own submit handler, so a blocked submit does not disable the Next button
+        document.getElementById('form').addEventListener('submit', function (event) {
+            const wrong = inputs.findIndex(function (input) { return hasComma(input.value); });
+            if (wrong !== -1) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                messages[wrong].scrollIntoView({behavior: 'smooth', block: 'center'});
+                return;
+            }
+            inputs.forEach(strip);
+        });
+    }
+
+    return {
+        SEPARATOR: SEPARATOR, COMMA_MESSAGE_WHOLE: COMMA_MESSAGE_WHOLE, COMMA_MESSAGE_CENTS: COMMA_MESSAGE_CENTS,
+        group: group, clean: clean, hasComma: hasComma, attach: attach, set: set, strip: strip, guard: guard,
+    };
+})();
+</script>

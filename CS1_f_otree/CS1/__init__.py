@@ -99,18 +99,19 @@ class Player(BasePlayer):
     # ---------------------------------------- LIFECYCLE PLANNING TOOL -------------------------------------------
     # ------------------------------------------------------------------------------------------------------------
     # y1..y8 are the plan years (ages 63 to 70 with the default parameters).
+    # Spending and changes in spending are amounts in currency units, entered with up to two decimals (cents).
     # depletion_age = age in which total savings are used up, i.e. fall below £0.50 (empty if never)
     # bequest = total savings left at the bequest age
 
     # Plan_Baseline: initial spending plan
-    base_spend_y1 = models.IntegerField(blank=True)
-    base_spend_y2 = models.IntegerField(blank=True)
-    base_spend_y3 = models.IntegerField(blank=True)
-    base_spend_y4 = models.IntegerField(blank=True)
-    base_spend_y5 = models.IntegerField(blank=True)
-    base_spend_y6 = models.IntegerField(blank=True)
-    base_spend_y7 = models.IntegerField(blank=True)
-    base_spend_y8 = models.IntegerField(blank=True)
+    base_spend_y1 = models.FloatField(blank=True)
+    base_spend_y2 = models.FloatField(blank=True)
+    base_spend_y3 = models.FloatField(blank=True)
+    base_spend_y4 = models.FloatField(blank=True)
+    base_spend_y5 = models.FloatField(blank=True)
+    base_spend_y6 = models.FloatField(blank=True)
+    base_spend_y7 = models.FloatField(blank=True)
+    base_spend_y8 = models.FloatField(blank=True)
     base_depletion_age = models.IntegerField(blank=True)
     base_bequest = models.FloatField(blank=True)
 
@@ -129,22 +130,22 @@ class Player(BasePlayer):
         widget=widgets.RadioSelect)
     present_comp_failed_attempts = models.IntegerField(initial=0)
     present_comp_wrong_history = models.LongStringField(initial='')
-    present_change_y1 = models.IntegerField(blank=True, min=None)
-    present_change_y2 = models.IntegerField(blank=True, min=None)
-    present_change_y3 = models.IntegerField(blank=True, min=None)
-    present_change_y4 = models.IntegerField(blank=True, min=None)
-    present_change_y5 = models.IntegerField(blank=True, min=None)
-    present_change_y6 = models.IntegerField(blank=True, min=None)
-    present_change_y7 = models.IntegerField(blank=True, min=None)
-    present_change_y8 = models.IntegerField(blank=True, min=None)
-    present_spend_y1 = models.IntegerField(blank=True)
-    present_spend_y2 = models.IntegerField(blank=True)
-    present_spend_y3 = models.IntegerField(blank=True)
-    present_spend_y4 = models.IntegerField(blank=True)
-    present_spend_y5 = models.IntegerField(blank=True)
-    present_spend_y6 = models.IntegerField(blank=True)
-    present_spend_y7 = models.IntegerField(blank=True)
-    present_spend_y8 = models.IntegerField(blank=True)
+    present_change_y1 = models.FloatField(blank=True, min=None)
+    present_change_y2 = models.FloatField(blank=True, min=None)
+    present_change_y3 = models.FloatField(blank=True, min=None)
+    present_change_y4 = models.FloatField(blank=True, min=None)
+    present_change_y5 = models.FloatField(blank=True, min=None)
+    present_change_y6 = models.FloatField(blank=True, min=None)
+    present_change_y7 = models.FloatField(blank=True, min=None)
+    present_change_y8 = models.FloatField(blank=True, min=None)
+    present_spend_y1 = models.FloatField(blank=True)
+    present_spend_y2 = models.FloatField(blank=True)
+    present_spend_y3 = models.FloatField(blank=True)
+    present_spend_y4 = models.FloatField(blank=True)
+    present_spend_y5 = models.FloatField(blank=True)
+    present_spend_y6 = models.FloatField(blank=True)
+    present_spend_y7 = models.FloatField(blank=True)
+    present_spend_y8 = models.FloatField(blank=True)
     present_depletion_age = models.IntegerField(blank=True)
     present_bequest = models.FloatField(blank=True)
     # Warning on Plan_Update for a plan that hardly reacts to the scenario (see PLAN_WARNING_DEFAULTS).
@@ -152,14 +153,14 @@ class Player(BasePlayer):
     # change_y*_initial = change in spending when Next was pressed and the first warning was shown
     # (the same as the final change if no warning was shown)
     present_warned_low_total = models.IntegerField(initial=0)
-    present_change_y1_initial = models.IntegerField(blank=True)
-    present_change_y2_initial = models.IntegerField(blank=True)
-    present_change_y3_initial = models.IntegerField(blank=True)
-    present_change_y4_initial = models.IntegerField(blank=True)
-    present_change_y5_initial = models.IntegerField(blank=True)
-    present_change_y6_initial = models.IntegerField(blank=True)
-    present_change_y7_initial = models.IntegerField(blank=True)
-    present_change_y8_initial = models.IntegerField(blank=True)
+    present_change_y1_initial = models.FloatField(blank=True)
+    present_change_y2_initial = models.FloatField(blank=True)
+    present_change_y3_initial = models.FloatField(blank=True)
+    present_change_y4_initial = models.FloatField(blank=True)
+    present_change_y5_initial = models.FloatField(blank=True)
+    present_change_y6_initial = models.FloatField(blank=True)
+    present_change_y7_initial = models.FloatField(blank=True)
+    present_change_y8_initial = models.FloatField(blank=True)
 
     # Plan_Scenario / Plan_Update with the inheritance in the future
     future_scenario_warning = models.IntegerField(initial=0)  # 1 = pressed Next within 10 seconds, 0 = waited 10 seconds
@@ -170,33 +171,33 @@ class Player(BasePlayer):
         widget=widgets.RadioSelect)
     future_comp_failed_attempts = models.IntegerField(initial=0)
     future_comp_wrong_history = models.LongStringField(initial='')
-    future_change_y1 = models.IntegerField(blank=True, min=None)
-    future_change_y2 = models.IntegerField(blank=True, min=None)
-    future_change_y3 = models.IntegerField(blank=True, min=None)
-    future_change_y4 = models.IntegerField(blank=True, min=None)
-    future_change_y5 = models.IntegerField(blank=True, min=None)
-    future_change_y6 = models.IntegerField(blank=True, min=None)
-    future_change_y7 = models.IntegerField(blank=True, min=None)
-    future_change_y8 = models.IntegerField(blank=True, min=None)
-    future_spend_y1 = models.IntegerField(blank=True)
-    future_spend_y2 = models.IntegerField(blank=True)
-    future_spend_y3 = models.IntegerField(blank=True)
-    future_spend_y4 = models.IntegerField(blank=True)
-    future_spend_y5 = models.IntegerField(blank=True)
-    future_spend_y6 = models.IntegerField(blank=True)
-    future_spend_y7 = models.IntegerField(blank=True)
-    future_spend_y8 = models.IntegerField(blank=True)
+    future_change_y1 = models.FloatField(blank=True, min=None)
+    future_change_y2 = models.FloatField(blank=True, min=None)
+    future_change_y3 = models.FloatField(blank=True, min=None)
+    future_change_y4 = models.FloatField(blank=True, min=None)
+    future_change_y5 = models.FloatField(blank=True, min=None)
+    future_change_y6 = models.FloatField(blank=True, min=None)
+    future_change_y7 = models.FloatField(blank=True, min=None)
+    future_change_y8 = models.FloatField(blank=True, min=None)
+    future_spend_y1 = models.FloatField(blank=True)
+    future_spend_y2 = models.FloatField(blank=True)
+    future_spend_y3 = models.FloatField(blank=True)
+    future_spend_y4 = models.FloatField(blank=True)
+    future_spend_y5 = models.FloatField(blank=True)
+    future_spend_y6 = models.FloatField(blank=True)
+    future_spend_y7 = models.FloatField(blank=True)
+    future_spend_y8 = models.FloatField(blank=True)
     future_depletion_age = models.IntegerField(blank=True)
     future_bequest = models.FloatField(blank=True)
     future_warned_low_total = models.IntegerField(initial=0)
-    future_change_y1_initial = models.IntegerField(blank=True)
-    future_change_y2_initial = models.IntegerField(blank=True)
-    future_change_y3_initial = models.IntegerField(blank=True)
-    future_change_y4_initial = models.IntegerField(blank=True)
-    future_change_y5_initial = models.IntegerField(blank=True)
-    future_change_y6_initial = models.IntegerField(blank=True)
-    future_change_y7_initial = models.IntegerField(blank=True)
-    future_change_y8_initial = models.IntegerField(blank=True)
+    future_change_y1_initial = models.FloatField(blank=True)
+    future_change_y2_initial = models.FloatField(blank=True)
+    future_change_y3_initial = models.FloatField(blank=True)
+    future_change_y4_initial = models.FloatField(blank=True)
+    future_change_y5_initial = models.FloatField(blank=True)
+    future_change_y6_initial = models.FloatField(blank=True)
+    future_change_y7_initial = models.FloatField(blank=True)
+    future_change_y8_initial = models.FloatField(blank=True)
 
     # ------------------------------------------------------------------------------------------------------------
     # ----------------------------------------- DEMOGRAPHICS (From SAE0) -----------------------------------------
@@ -426,10 +427,25 @@ PLAN_RATE_TOLERANCE = 1e-9  # interest and growth rates this close count as equa
 PLAN_MAX_AMOUNT = 10 ** 9  # larger amounts reported by a page are not stored
 
 
+# Thousands are separated by a small space (narrow no-break space), never by a comma, which is a decimal
+# separator in many countries. Keep in sync with SEPARATOR in CS1/partials/amount_input.html
+THOUSANDS_SEPARATOR = '\u202f'
+
+
 def _money(value):
     value = round(value)
     sign = '-' if value < 0 else ''
-    return f'{sign}{C.DEFAULT_CURRENCY_SYMBOL}{abs(value):,}'
+    return f'{sign}{C.DEFAULT_CURRENCY_SYMBOL}{abs(value):,}'.replace(',', THOUSANDS_SEPARATOR)
+
+
+def _money_exact(value):
+    """Like _money(), but with cents if the amount has any: for what the participant entered."""
+    value = round(value, 2)
+    if value == round(value):
+        return _money(value)
+    sign = '-' if value < 0 else ''
+    whole, cents = divmod(round(abs(value) * 100), 100)
+    return f'{sign}{C.DEFAULT_CURRENCY_SYMBOL}{whole:,}.{cents:02d}'.replace(',', THOUSANDS_SEPARATOR)
 
 
 def _plan_params_from_config(config):
@@ -633,20 +649,32 @@ def _plan_notes(p, depletion_age, bequest):
     return [used_up, dict(main=left, detail='')]
 
 
-def _plan_error(p, spending, inheritance_age=None, base_spending=None):
+PLAN_CENTS_ERROR = 'Please enter amounts with at most two decimal places (cents).'
+
+
+def _plan_is_cents(amount):
+    """An amount with at most two decimals (typed in, so not exact in binary: compared with a tolerance)."""
+    return math.isfinite(amount) and abs(amount * 100 - round(amount * 100)) < 1e-6
+
+
+def _plan_error(p, spending, inheritance_age=None, base_spending=None, entries=None):
     """Error message if a spending plan is incomplete or not feasible, otherwise None.
 
-    base_spending is passed when the participant entered changes in spending rather than spending.
+    base_spending is passed when the participant entered changes in spending rather than spending;
+    entries are then these changes (the amounts typed in), otherwise they are the spending.
     Keep the rules and wording in sync with planError() in CS1/partials/plan_tool_scripts.html
     """
     if any(amount is None for amount in spending):
         return 'Please enter a number for every year.'
 
+    if not all(_plan_is_cents(amount) for amount in (spending if entries is None else entries)):
+        return PLAN_CENTS_ERROR
+
     for year, age in enumerate(_plan_ages(p)):
         if spending[year] < 0:
             if base_spending:
                 return (f'You cannot reduce your spending at age {age} by more than the '
-                        f'{_money(base_spending[year])} you planned to spend in that year.')
+                        f'{_money_exact(base_spending[year])} you planned to spend in that year.')
             return f'Your spending at age {age} cannot be negative.'
 
     rows, _, _ = _plan_project(p, spending, inheritance_age)
@@ -700,7 +728,7 @@ def _plan_vars(player: Player, timing=None):
         )
         if has_base:
             row.update(
-                base_spend=_money(base_spending[year]),
+                base_spend=_money_exact(base_spending[year]),
                 base_saving=_money(max(base_rows[year]['saving'], 0)),
                 base_dissaving=_money(max(-base_rows[year]['saving'], 0)),
                 base_total=_money(base_rows[year]['total']),
@@ -869,8 +897,8 @@ def _plan_update_error(player: Player, values, scenario_number):
         return _plan_error(p, entries, inheritance_age)
 
     base_spending = _plan_base_spending(player)
-    spending = [None if change is None else base + change for base, change in zip(base_spending, entries)]
-    return _plan_error(p, spending, inheritance_age, base_spending)
+    spending = [None if change is None else round(base + change, 2) for base, change in zip(base_spending, entries)]
+    return _plan_error(p, spending, inheritance_age, base_spending, entries)
 
 
 def _plan_update_live(player: Player, data, scenario_number):
@@ -894,7 +922,8 @@ def _plan_warning_store(player: Player, data, scenario_number):
     changes = data.get('changes')
     plausible = (
         isinstance(changes, list) and len(changes) == C.PLAN_YEARS
-        and all(type(change) is int and abs(change) <= PLAN_MAX_AMOUNT for change in changes))
+        and all(type(change) in (int, float) and _plan_is_cents(change) and abs(change) <= PLAN_MAX_AMOUNT
+                for change in changes))
     if plausible and player.field_maybe_none(f'{timing}_change_y1_initial') is None:
         for i, change in zip(PLAN_YEAR_NUMBERS, changes):
             setattr(player, f'{timing}_change_y{i}_initial', change)
@@ -908,9 +937,9 @@ def _plan_update_store(player: Player, scenario_number):
     for i, base in zip(PLAN_YEAR_NUMBERS, _plan_base_spending(player)):
         if _plan_level(player):
             spend = getattr(player, f'{timing}_spend_y{i}')
-            setattr(player, f'{timing}_change_y{i}', spend - base)
+            setattr(player, f'{timing}_change_y{i}', round(spend - base, 2))
         else:
-            spend = base + getattr(player, f'{timing}_change_y{i}')
+            spend = round(base + getattr(player, f'{timing}_change_y{i}'), 2)
             setattr(player, f'{timing}_spend_y{i}', spend)
         spending.append(spend)
 
