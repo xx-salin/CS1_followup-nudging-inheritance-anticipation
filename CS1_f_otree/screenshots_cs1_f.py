@@ -11,7 +11,8 @@ One run captures every variation of the study with as few pictures as possible:
                      reminder after a wrong answer, warning for a plan without
                      any change)
   02_variations/     only the pages that look different for the other
-                     participants: the plan-update page of each group in both
+                     participants: the plan-update page of each group (also of the
+                     extra layouts without reminder and/or graph) in both
                      rounds, the scenario pages in the other order, and the
                      inheritance follow-up screens in the other framing
   index.md           what each picture shows
@@ -581,7 +582,14 @@ def page_variant(page, label, state):
         timing = cfg["fields"][0].split("_")[0]
         entered = "level" if cfg["mode"] == "level" else "change"
         tool = "tool" if cfg["dynamic"] else "notool"
-        return f"Plan_Update_{entered}_{tool}_{timing}"
+        # the extra layouts (C.EXTRA_LAYOUTS) leave out the reminder of the initial plan and/or the graph
+        left_out = ""
+        if not cfg["dynamic"]:
+            if "Reminder: Initial Financial Plan" not in page.content():
+                left_out += "_noreminder"
+            if page.locator("#plan-chart").count() == 0:
+                left_out += "_nograph"
+        return f"Plan_Update_{entered}_{tool}{left_out}_{timing}"
     if label.startswith("Inh_Followup"):
         if label == "Inh_Followup_A":
             state["frame"] = "save" if "save less" in page.content() else "spend"
