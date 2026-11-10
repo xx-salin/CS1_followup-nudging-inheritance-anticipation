@@ -12,12 +12,17 @@ Follow-up to CS1: does the way spending reactions are elicited change the reacti
 Participants take the role of someone who has just turned 63 and plans for retirement and fill out a spending plan in a
 lifecycle planning tool (see ToyLifecycleTool.xlsx). They then face two scenarios in random order
 (within-subject) in which they inherit a one-time payment either today or in the future, and update
-their plan in one of four layouts (between-subject, 2 x 2: what is entered x planning tool or not):
+their plan in one of four main layouts (between-subject, 2 x 2: what is entered x planning tool or not):
     natural_2:  enter the change in spending per year; no tool (a graph of the entries, the initial spending as a reminder)
     reframed_2: enter the updated spending per year; no tool (as natural_2)
     natural_1:  enter the change in spending per year; the tool (table and info box) and a graph update dynamically
     reframed:   enter the updated spending per year; the tool and a graph update dynamically
 (natural_1, natural_2 and reframed are named after the sheets of the tool.)
+Three further layouts (C.EXTRA_LAYOUTS, which can be dropped again there) are variations of natural_2 that leave out
+the reminder of the initial plan and/or the graph of the entries:
+    natural_2_no_rem_no_graph:  neither the reminder nor the graph
+    natural_2_no_rem_graph:     the graph, but no reminder
+    natural_2_rem_no_graph:     the reminder, but no graph
 In every layout all years have to be filled in actively, and a plan that hardly reacts to the scenario
 leads to a warning that the participant can follow or ignore (see PLAN_WARNING_DEFAULTS).
 The concluding survey covers demographics and the participant's own expected parental inheritance.
@@ -30,7 +35,16 @@ class C(BaseConstants):
     NUM_ROUNDS = 1
     KEYLOG_EVENT_CAP = 2000
     PLAN_YEARS = 8  # years for which spending is planned
-    LAYOUTS = ['natural_2', 'reframed_2', 'natural_1', 'reframed']
+    MAIN_LAYOUTS = ['natural_2', 'reframed_2', 'natural_1', 'reframed']
+    # Further between-subject layouts: natural_2 (change in spending, no tool) without the reminder of the
+    # initial plan and/or without the graph of the entries. To drop a layout from the experiment, comment out
+    # its line (e.g. the two "mixed" ones); with all lines commented out, only the main layouts remain.
+    EXTRA_LAYOUTS = {
+        'natural_2_no_rem_no_graph': dict(reminder=False, graph=False),
+        'natural_2_no_rem_graph': dict(reminder=False, graph=True),  # mixed
+        'natural_2_rem_no_graph': dict(reminder=True, graph=False),  # mixed
+    }
+    LAYOUTS = MAIN_LAYOUTS + list(EXTRA_LAYOUTS)  # all layouts of the experiment
     LEVEL_LAYOUTS = ['reframed_2', 'reframed']  # the updated spending is entered, not the change in spending
     TOOL_LAYOUTS = ['natural_1', 'reframed']  # the planning tool updates with the entries
     ROUND_ORDERS = ['present_first', 'future_first']
@@ -54,9 +68,11 @@ class Group(BaseGroup):
 class Player(BasePlayer):
     # CREATING SESSION -
     prolific_id = models.StringField(blank=True, label='Your Prolific ID')
-    layout = models.StringField()  # see doc: natural_2 / reframed_2 / natural_1 / reframed
+    layout = models.StringField()  # see doc: natural_2 / reframed_2 / natural_1 / reframed, or one of C.EXTRA_LAYOUTS
     entry_frame = models.StringField()  # the two dimensions of the layout: change / level (what is entered)
     tool = models.BooleanField()  # and whether the planning tool updates with the entries
+    show_reminder = models.BooleanField()  # whether the initial plan is shown on the update pages (the tool shows it in its table)
+    show_graph = models.BooleanField()  # whether the graph of the entries is shown on the update pages
     round_order = models.StringField()  # present_first / future_first
     mother_father = models.IntegerField(initial=0)  # mother = 1, father = 2
     inh_followup_frame = models.IntegerField()  # spending frame = 1, saving frame = 2 (random, 50/50)
@@ -506,6 +522,16 @@ def _plan_tool(player: Player):
     return player.layout in C.TOOL_LAYOUTS
 
 
+def _plan_reminder(player: Player):
+    """The initial plan is shown on the update pages (a reminder box, or in the table of the tool)."""
+    return C.EXTRA_LAYOUTS.get(player.layout, {}).get('reminder', True)
+
+
+def _plan_graph(player: Player):
+    """The graph of the entries is shown on the update pages."""
+    return C.EXTRA_LAYOUTS.get(player.layout, {}).get('graph', True)
+
+
 def _plan_scenario_timing(player: Player, scenario_number):
     timings = ['present', 'future'] if player.round_order == 'present_first' else ['future', 'present']
     return timings[scenario_number - 1]
@@ -747,6 +773,8 @@ def _plan_vars(player: Player, timing=None):
         layout=player.layout,
         level=_plan_level(player),
         tool=_plan_tool(player),
+        show_reminder=_plan_reminder(player),
+        show_graph=_plan_graph(player),
         years=years,
         plan_years=C.PLAN_YEARS,
         work_years=work_years,
@@ -965,14 +993,18 @@ def creating_session(subsession: Subsession):
     if subsession.round_number == 1:
         _plan_check_params(_plan_params_from_config(subsession.session.config))
 
-        # Between-subject cells: layout (2 x 2) x order of the two scenarios. The layout changes fastest,
-        # so that every 8 participants cover all cells once.
-        cells = [(layout, round_order) for round_order in C.ROUND_ORDERS for layout in C.LAYOUTS]
+        # Between-subject cells: layout x order of the two scenarios. The layout changes fastest. The cells of
+        # the four main layouts (2 x 2) come first, so that participants 1 to 8 are the same with and without the
+        # extra layouts; then those of the extra layouts. A block of 8 (+ 2 per extra layout) participants covers all cells once.
+        cells = [(layout, round_order) for layouts in [C.MAIN_LAYOUTS, list(C.EXTRA_LAYOUTS)]
+                 for round_order in C.ROUND_ORDERS for layout in layouts]
 
         for i, player in enumerate(subsession.get_players()):
             player.layout, player.round_order = cells[i % len(cells)]
             player.entry_frame = 'level' if _plan_level(player) else 'change'
             player.tool = _plan_tool(player)
+            player.show_reminder = _plan_reminder(player)
+            player.show_graph = _plan_graph(player)
             # drawn independently of the treatment, with 50/50 likelihood each
             player.mother_father = random.randint(1, 2)
             player.inh_followup_frame = random.randint(1, 2)

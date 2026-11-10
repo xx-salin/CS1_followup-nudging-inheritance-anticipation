@@ -21,14 +21,14 @@
     <div style="margin-top: 20px;">
         {{ if level }}
             <strong>Please enter your plan for spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
-            {{ if tool }}The table and the graph update as you type.{{ else }}The graph updates as you type.{{ endif }}
+            {{ if tool }}The table and the graph update as you type.{{ elif show_graph }}The graph updates as you type.{{ endif }}
             Please type a number into every box, also for years in which you would spend the same as in your initial plan.
         {{ elif tool }}
             <strong>Please enter your plan for changes in spending in each of the coming {{ plan_years }} years, considering the scenario.</strong>
             The table and the graph update as you type.
         {{ else }}
             <strong>Please enter how this would change your spending plans for each of the coming {{ plan_years }} years.</strong>
-            The graph updates as you type.
+            {{ if show_graph }}The graph updates as you type.{{ endif }}
         {{ endif }}
     </div>
     {{ if not level }}
@@ -39,6 +39,7 @@
         </div>
     {{ endif }}
 
+    {{ if show_graph }}
     <!-- graph of the entries; without the tool it has the same size, but no info box next to it -->
     <div class="plan-overview">
         {{ if level }}
@@ -51,6 +52,7 @@
         {{ endif }}
         {{ if tool }}<ul class="plan-notes" id="plan-notes"></ul>{{ endif }}
     </div>
+    {{ endif }}
 
     <div class="plan-table-wrapper">
         <table class="plan-table">
@@ -117,7 +119,7 @@
         </div>
     </div>
 
-    {{ if not tool }}
+    {{ if not tool }}{{ if show_reminder }}
         <!-- in a box like the scenario reminder: the initial spending does not change with the entries above -->
         <div class="plan-box bg-light" style="margin-top: 30px;">
             <strong>Reminder: Initial Financial Plan</strong>
@@ -133,7 +135,7 @@
                 </table>
             </div>
         </div>
-    {{ endif }}
+    {{ endif }}{{ endif }}
 
     <div style="margin-top: 30px;">
         {{ next_button }}

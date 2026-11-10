@@ -59,7 +59,7 @@ from playwright.sync_api import sync_playwright
 # ---------------------------------------------------------------------------
 BASE_URL   = "http://127.0.0.1:8000/"
 APP_NAME   = "CS1"
-CELLS_NEEDED = 5             # participants 1-5 show all treatment variations
+CELLS_NEEDED = 11            # participants 1-11 show all treatment variations (1-5 without EXTRA_LAYOUTS)
 MAX_PARTICIPANTS = 16        # further participants only for the spend/save framing
 MAX_STEPS  = 200
 OUT_DIR    = "screenshots"
@@ -67,12 +67,19 @@ HEADED     = True            # False = headless
 
 # ---------------------------------------------------------------------------
 # Treatment cells (must match creating_session order in __init__.py)
-# layout (2 x 2) x order of the scenarios
+# layout x order of the scenarios: the four main layouts (2 x 2) first, then the extra layouts
 # ---------------------------------------------------------------------------
+MAIN_LAYOUTS = ["natural_2", "reframed_2", "natural_1", "reframed"]
+EXTRA_LAYOUTS = [  # as C.EXTRA_LAYOUTS in __init__.py; with none, set CELLS_NEEDED = 5
+    "natural_2_no_rem_no_graph",
+    "natural_2_no_rem_graph",
+    "natural_2_rem_no_graph",
+]
 GROUPS = [
     f"{layout}_{round_order}"
+    for layouts in [MAIN_LAYOUTS, EXTRA_LAYOUTS]
     for round_order in ["present_first", "future_first"]
-    for layout in ["natural_2", "reframed_2", "natural_1", "reframed"]
+    for layout in layouts
 ]
 
 PLAN_YEARS = range(1, 9)

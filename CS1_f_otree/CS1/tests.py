@@ -6,9 +6,9 @@ from . import (
     _plan_update_fields,
 )
 
-# Run with:  otree test CS1 16
-# Every 8 participants cover every cell of layout (2 x 2) x scenario order; the framing of the
-# follow-up (spending / saving) is drawn at random.
+# Run with:  otree test CS1 28
+# 8 + 2 per extra layout (C.EXTRA_LAYOUTS) participants cover every cell of layout x scenario order once
+# (14 with the three extra layouts); the framing of the follow-up (spending / saving) is drawn at random.
 #
 # The projections stored by the planning tool (formulas) are compared with a plain year-by-year
 # calculation, whatever the tool parameters in settings.py are. With the default parameters, the
@@ -115,6 +115,11 @@ class PlayerBot(Bot):
         expect(self.player.layout, 'in', C.LAYOUTS)
         level, tool = self.player.layout in C.LEVEL_LAYOUTS, self.player.layout in C.TOOL_LAYOUTS
         expect((self.player.entry_frame, self.player.tool), ('level' if level else 'change', tool))
+        # the extra layouts are variations of natural_2 (change, no tool) without the reminder and/or the graph
+        extra = C.EXTRA_LAYOUTS.get(self.player.layout)
+        reminder, graph = (extra['reminder'], extra['graph']) if extra else (True, True)
+        expect(bool(extra) and (level or tool), False)
+        expect((self.player.show_reminder, self.player.show_graph), (reminder, graph))
         expect(self.player.round_order, 'in', C.ROUND_ORDERS)
         p = _plan_params(self.player)
         sheet_parameters = all(p[name] == value for name, value in PLAN_PARAM_DEFAULTS.items())
@@ -175,8 +180,10 @@ class PlayerBot(Bot):
 
             # without the tool: only the initial spending as a reminder, no savings and no info box
             expect('Total savings' in self.html, tool)
-            expect('Reminder: Initial Financial Plan' in self.html, not tool)
+            expect('Reminder: Initial Financial Plan' in self.html, not tool and reminder)
             expect('id="plan-notes"' in self.html, tool)  # the info box
+            expect('id="plan-chart"' in self.html, graph)
+            expect('graph updates as you type' in self.html or 'graph update as you type' in self.html, graph)
 
             from_sheet = sheet_parameters and self.case == 'sheet_entries'
             if from_sheet and entered == 'spend':
